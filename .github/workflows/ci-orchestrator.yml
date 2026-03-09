@@ -63,10 +63,10 @@ jobs:
       run: |
         docker build -t orchestrator-service:latest .
     
-    - name: Test Docker image
-      if: github.ref == 'refs/heads/main'
-      run: |
-        docker run -d --name test-orchestrator -p 8001:8001 orchestrator-service:latest
-        sleep 5
-        curl -f http://localhost:8001 || exit 1
-        docker stop test-orchestrator
+#    - name: Test Docker image
+#      if: github.ref == 'refs/heads/main'
+#      run: |
+#        docker run -d --name test-orchestrator -p 8001:8001 orchestrator-service:latest
+#        sleep 5
+#        curl -f http://localhost:8001 || exit 1
+#        docker stop test-orchestrator

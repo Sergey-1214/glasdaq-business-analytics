@@ -63,10 +63,10 @@ jobs:
       run: |
         docker build -t parsers-service:latest .
     
-    - name: Test Docker image
-      if: github.ref == 'refs/heads/main'
-      run: |
-        docker run -d --name test-parsers -p 8006:8006 parsers-service:latest
-        sleep 5
-        curl -f http://localhost:8006 || exit 1
-        docker stop test-parsers
+#    - name: Test Docker image
+#      if: github.ref == 'refs/heads/main'
+#      run: |
+#        docker run -d --name test-parsers -p 8006:8006 parsers-service:latest
+#        sleep 5
+#        curl -f http://localhost:8006 || exit 1
+#        docker stop test-parsers

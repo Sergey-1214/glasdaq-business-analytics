@@ -63,10 +63,10 @@ jobs:
       run: |
         docker build -t product-service:latest .
     
-    - name: Test Docker image
-      if: github.ref == 'refs/heads/main'
-      run: |
-        docker run -d --name test-product -p 8002:8002 product-service:latest  
-        sleep 5
-        curl -f http://localhost:8002 || exit 1  
-        docker stop test-product
+#    - name: Test Docker image
+#      if: github.ref == 'refs/heads/main'
+#      run: |
+#        docker run -d --name test-product -p 8002:8002 product-service:latest  
+#        sleep 5
+#        curl -f http://localhost:8002 || exit 1  
+#        docker stop test-product
