@@ -200,4 +200,3 @@ networks:
 
 volumes:
   market-db-data:
-  redis-data:
