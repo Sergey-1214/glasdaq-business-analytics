@@ -1,0 +1,202 @@
+version: '3.8'
+
+services:
+  api_gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: api_gateway
+        PORT: ${GATEWAY_PORT}
+    ports:
+      - "${GATEWAY_PORT}:${GATEWAY_PORT}"
+    environment:
+      - SERVICE_NAME=api_gateway
+      - PORT=${GATEWAY_PORT}
+      - ORCHESTRATOR_URL=${ORCHESTRATOR_URL}
+      - PRODUCT_SERVICE_URL=${PRODUCT_SERVICE_URL}
+      - TEAM_SERVICE_URL=${TEAM_SERVICE_URL}
+      - FINANCE_SERVICE_URL=${FINANCE_SERVICE_URL}
+      - MARKET_SERVICE_URL=${MARKET_SERVICE_URL}
+      - PRODUCT_IMPLEMENTATION_URL=http://product_implementation:${PRODUCT_IMPLEMENTATION_PORT:-8008}
+      - PARSERS_URL=${PARSERS_URL}
+      - DEBUG=${DEBUG}
+      - LOG_LEVEL=${LOG_LEVEL}
+    env_file:
+      - .env
+    depends_on:
+      - orchestrator
+      - product_service
+      - team_service
+      - finance_service
+      - market_service
+      - product_implementation
+      - parsers
+    networks:
+      - backend
+    restart: unless-stopped
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: orchestrator
+        PORT: ${ORCHESTRATOR_PORT}
+    ports:
+      - "${ORCHESTRATOR_PORT}:${ORCHESTRATOR_PORT}"
+    environment:
+      - SERVICE_NAME=orchestrator
+      - PORT=${ORCHESTRATOR_PORT}
+      - DEBUG=${DEBUG}
+    env_file:
+      - .env
+    networks:
+      - backend
+    restart: unless-stopped
+
+  product_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: product_service
+        PORT: ${PRODUCT_SERVICE_PORT}
+    ports:
+      - "${PRODUCT_SERVICE_PORT}:${PRODUCT_SERVICE_PORT}"
+    environment:
+      - SERVICE_NAME=product_service
+      - PORT=${PRODUCT_SERVICE_PORT}
+      - DEBUG=${DEBUG}
+    env_file:
+      - .env
+    networks:
+      - backend
+    restart: unless-stopped
+
+  product_implementation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: product_implementation
+        PORT: ${PRODUCT_IMPLEMENTATION_PORT:-8008}
+    ports:
+      - "${PRODUCT_IMPLEMENTATION_PORT:-8008}:${PRODUCT_IMPLEMENTATION_PORT:-8008}"
+    environment:
+      - SERVICE_NAME=product_implementation
+      - PORT=${PRODUCT_IMPLEMENTATION_PORT:-8008}
+    networks:
+      - backend
+    restart: unless-stopped
+
+  team_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: team_service
+        PORT: ${TEAM_SERVICE_PORT}
+    ports:
+      - "${TEAM_SERVICE_PORT}:${TEAM_SERVICE_PORT}"
+    environment:
+      - SERVICE_NAME=team_service
+      - PORT=${TEAM_SERVICE_PORT}
+      - DEBUG=${DEBUG}
+    env_file:
+      - .env
+    networks:
+      - backend
+    restart: unless-stopped
+
+  finance_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: finance_service
+        PORT: ${FINANCE_SERVICE_PORT}
+    ports:
+      - "${FINANCE_SERVICE_PORT}:${FINANCE_SERVICE_PORT}"
+    environment:
+      - SERVICE_NAME=finance_service
+      - PORT=${FINANCE_SERVICE_PORT}
+      - DEBUG=${DEBUG}
+    env_file:
+      - .env
+    networks:
+      - backend
+    restart: unless-stopped
+
+  market_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: market_service
+        PORT: ${MARKET_SERVICE_PORT}
+    ports:
+      - "${MARKET_SERVICE_PORT}:${MARKET_SERVICE_PORT}"
+    environment:
+      - SERVICE_NAME=market_service
+      - PORT=${MARKET_SERVICE_PORT}
+      - DATABASE_URL=postgresql://${MARKET_DB_USER}:${MARKET_DB_PASSWORD}@market-db:${MARKET_DB_PORT}/${MARKET_DB_NAME}
+      - DEBUG=${DEBUG}
+    env_file:
+      - .env
+    depends_on:
+      market-db:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+
+  market-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${MARKET_DB_USER}
+      POSTGRES_PASSWORD: ${MARKET_DB_PASSWORD}
+      POSTGRES_DB: ${MARKET_DB_NAME}
+    ports:
+      - "${MARKET_DB_PORT}:5432"
+    volumes:
+      - market-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${MARKET_DB_USER} -d ${MARKET_DB_NAME}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    env_file:
+      - .env
+    networks:
+      - backend
+    restart: unless-stopped
+
+  parsers:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: parsers
+        PORT: ${PARSERS_PORT}
+    ports:
+      - "${PARSERS_PORT}:${PARSERS_PORT}"
+    environment:
+      - SERVICE_NAME=parsers
+      - PORT=${PARSERS_PORT}
+      - MARKET_SERVICE_URL=${MARKET_SERVICE_URL} 
+      - DEBUG=${DEBUG}
+    env_file:
+      - .env
+    depends_on:
+      - market_service
+    networks:
+      - backend
+    restart: unless-stopped
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  market-db-data:
