@@ -1,0 +1,51 @@
+.right-sidebar {
+  grid-area: right;
+  background: #13141c;
+  border-left: 1px solid #1e2030;
+  display: flex;
+  flex-direction: column;
+}
+
+.right-sidebar__add-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.right-sidebar__add-btn {
+  margin: 8px;
+  height: 36px;
+  width: calc(100% - 16px);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b6f80;
+  font-size: 20px;
+  font-weight: 300;
+  cursor: pointer;
+  border: 1px dashed #2a2b3d;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.right-sidebar__add-btn:hover {
+  color: #e2e2e2;
+  border-color: #555;
+}
+
+.right-sidebar__blocks {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+/* Подсветка при drag-over из другой зоны */
+.right-sidebar--drop-target .right-sidebar__blocks {
+  outline: 2px dashed rgba(124, 106, 245, 0.7);
+  outline-offset: -4px;
+  background: rgba(124, 106, 245, 0.06);
+  border-radius: 8px;
+  transition: background 0.15s, outline-color 0.15s;
+}

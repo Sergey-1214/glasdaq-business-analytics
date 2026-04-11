@@ -1,0 +1,67 @@
+.block {
+  background: #13141c;
+  border: 1px solid #1e2030;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.block__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid #1e2030;
+  flex-shrink: 0;
+  cursor: grab;
+  user-select: none;
+}
+
+.block__header:active {
+  cursor: grabbing;
+}
+
+.block__title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b6f80;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.block__actions {
+  display: flex;
+  gap: 2px;
+}
+
+.block__btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.45;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.block__btn:hover {
+  opacity: 1;
+  background: #1e2030;
+}
+
+.block__btn img {
+  width: 13px;
+  height: 13px;
+  display: block;
+  object-fit: contain;
+  /* перекрашивает любой PNG в белый */
+  filter: brightness(0) invert(1);
+}
+
+.block__body {
+  flex: 1;
+  overflow: auto;
+}

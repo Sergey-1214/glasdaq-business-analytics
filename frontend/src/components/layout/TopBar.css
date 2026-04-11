@@ -1,0 +1,79 @@
+.topbar {
+  grid-area: topbar;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  background: #13141c;
+  border-bottom: 1px solid #1e2030;
+  position: relative;
+  z-index: 10;
+}
+
+.topbar__logo {
+  width: 200px;
+  margin-left: -16px;
+  padding-left: 16px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.topbar__logo-img {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+}
+
+.topbar__center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+.topbar__workspace-btn {
+  background: #1c1d28;
+  color: #e2e2e2;
+  border: 1px solid #2a2b3d;
+  border-radius: 6px;
+  padding: 6px 20px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.topbar__workspace-btn:hover {
+  background: #23243a;
+}
+
+.topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar__balance {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e2e2;
+  padding-right: 4px;
+}
+
+.topbar__icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1c1d28;
+  border: 1px solid #2a2b3d;
+  color: #e2e2e2;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.topbar__icon-btn:hover {
+  background: #23243a;
+}
