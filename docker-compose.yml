@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   api_gateway:
     build:
@@ -162,7 +160,8 @@ services:
     volumes:
       - market-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${MARKET_DB_USER} -d ${MARKET_DB_NAME}"]
+      test:
+        ["CMD-SHELL", "pg_isready -U ${MARKET_DB_USER} -d ${MARKET_DB_NAME}"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -184,7 +183,7 @@ services:
     environment:
       - SERVICE_NAME=parsers
       - PORT=${PARSERS_PORT}
-      - MARKET_SERVICE_URL=${MARKET_SERVICE_URL} 
+      - MARKET_SERVICE_URL=${MARKET_SERVICE_URL}
       - DEBUG=${DEBUG}
     env_file:
       - .env
@@ -193,6 +192,19 @@ services:
     networks:
       - backend
     restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: glasdaq_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    networks:
+      - backend
 
 networks:
   backend:
