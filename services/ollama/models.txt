@@ -1,0 +1,7 @@
+# Модели для Startup Analyzer
+# Формат: имя_модели|описание|размер
+
+phi|Microsoft Phi-2 для SWOT и аудитории|2.7B
+qwen2.5:7b|Alibaba Qwen 2.5 для креативных задач|7B
+llama2:7b|Meta Llama 2 для рекомендаций команды|7B
+mistral:7b|Mistral для технического стека|7B
