@@ -52,13 +52,8 @@
   background: #1e2030;
 }
 
-.block__btn img {
-  width: 13px;
-  height: 13px;
+.block__btn svg {
   display: block;
-  object-fit: contain;
-  /* перекрашивает любой PNG в белый */
-  filter: brightness(0) invert(1);
 }
 
 .block__body {

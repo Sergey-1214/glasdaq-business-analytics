@@ -1,3 +1,4 @@
+import { Maximize2, Minimize2, X } from 'lucide-react'
 import { useDashboardStore } from '../../store/dashboardStore'
 import './Block.css'
 
@@ -15,10 +16,7 @@ export default function Block({ id, title, children, className = '' }) {
             onClick={() => (isFocused ? clearFocus() : setFocus(id))}
             title={isFocused ? 'Свернуть' : 'Развернуть'}
           >
-            <img
-              src={isFocused ? '/shrink.png' : '/expand.png'}
-              alt={isFocused ? 'Свернуть' : 'Развернуть'}
-            />
+            {isFocused ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
           </button>
           {id !== 'map' && (
             <button
@@ -29,7 +27,7 @@ export default function Block({ id, title, children, className = '' }) {
               }}
               title="Закрыть"
             >
-              <img src="/close.png" alt="Закрыть" />
+              <X size={13} />
             </button>
           )}
         </div>

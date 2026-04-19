@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { Home, Plus } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useDashboardStore, BLOCK_REGISTRY } from '../../store/dashboardStore'
@@ -20,7 +21,7 @@ function FocusSidebar() {
           onClick={clearFocus}
           title="Выйти из режима фокуса"
         >
-          ⌂
+          <Home size={16} />
         </button>
         <div className="left-sidebar__icon-divider" />
         {allActiveBlocks.map((block) => (
@@ -63,7 +64,7 @@ function NormalSidebar({ isDropTarget }) {
           title="Добавить блок"
           onClick={() => setSelectorOpen((v) => !v)}
         >
-          +
+          <Plus size={18} />
         </button>
         {selectorOpen && (
           <WorkspaceSelector

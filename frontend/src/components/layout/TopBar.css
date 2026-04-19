@@ -19,7 +19,7 @@
 }
 
 .topbar__logo-img {
-  height: 48px;
+  height: 72px;
   width: auto;
   object-fit: contain;
 }
@@ -76,4 +76,24 @@
 
 .topbar__icon-btn:hover {
   background: #23243a;
+}
+
+.topbar__icon-btn--active {
+  background: #23243a;
+  border-color: #3a3b55;
+  color: #c8ccd8;
+}
+
+.topbar__notif-wrapper {
+  position: relative;
+}
+
+.topbar__username {
+  font-size: 13px;
+  color: #9d96c8;
+  padding-right: 4px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { Plus } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable'
 import { useDashboardStore } from '../../store/dashboardStore'
@@ -33,7 +34,7 @@ export default function BottomRow({ isDropTarget = false }) {
           title="Добавить блок"
           onClick={() => setSelectorOpen((v) => !v)}
         >
-          +
+          <Plus size={18} />
         </button>
         {selectorOpen && (
           <WorkspaceSelector
