@@ -1,25 +1,21 @@
 services:
   api_gateway:
     build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_NAME: api_gateway
-        PORT: ${GATEWAY_PORT}
+      context: ./api_gateway
     ports:
       - "${GATEWAY_PORT}:${GATEWAY_PORT}"
     environment:
-      - SERVICE_NAME=api_gateway
-      - PORT=${GATEWAY_PORT}
-      - ORCHESTRATOR_URL=${ORCHESTRATOR_URL}
-      - PRODUCT_SERVICE_URL=${PRODUCT_SERVICE_URL}
-      - TEAM_SERVICE_URL=${TEAM_SERVICE_URL}
-      - FINANCE_SERVICE_URL=${FINANCE_SERVICE_URL}
-      - MARKET_SERVICE_URL=${MARKET_SERVICE_URL}
-      - PRODUCT_IMPLEMENTATION_URL=http://product_implementation:${PRODUCT_IMPLEMENTATION_PORT:-8008}
-      - PARSERS_URL=${PARSERS_URL}
-      - DEBUG=${DEBUG}
-      - LOG_LEVEL=${LOG_LEVEL}
+      SERVICE_NAME: api_gateway
+      PORT: ${GATEWAY_PORT}
+      ORCHESTRATOR_URL: ${ORCHESTRATOR_URL}
+      PRODUCT_SERVICE_URL: ${PRODUCT_SERVICE_URL}
+      TEAM_SERVICE_URL: ${TEAM_SERVICE_URL}
+      FINANCE_SERVICE_URL: ${FINANCE_SERVICE_URL}
+      MARKET_SERVICE_URL: ${MARKET_SERVICE_URL}
+      PRODUCT_IMPLEMENTATION_URL: ${PRODUCT_IMPLEMENTATION_URL}
+      PARSERS_URL: ${PARSERS_URL}
+      DEBUG: ${DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL}
     env_file:
       - .env
     depends_on:
@@ -36,17 +32,14 @@ services:
 
   orchestrator:
     build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_NAME: orchestrator
-        PORT: ${ORCHESTRATOR_PORT}
+      context: ./orchestrator
     ports:
       - "${ORCHESTRATOR_PORT}:${ORCHESTRATOR_PORT}"
     environment:
-      - SERVICE_NAME=orchestrator
-      - PORT=${ORCHESTRATOR_PORT}
-      - DEBUG=${DEBUG}
+      SERVICE_NAME: orchestrator
+      PORT: ${ORCHESTRATOR_PORT}
+      DEBUG: ${DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL}
     env_file:
       - .env
     networks:
@@ -55,52 +48,50 @@ services:
 
   product_service:
     build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_NAME: product_service
-        PORT: ${PRODUCT_SERVICE_PORT}
+      context: ./product_service
     ports:
       - "${PRODUCT_SERVICE_PORT}:${PRODUCT_SERVICE_PORT}"
     environment:
-      - SERVICE_NAME=product_service
-      - PORT=${PRODUCT_SERVICE_PORT}
-      - DEBUG=${DEBUG}
+      SERVICE_NAME: product_service
+      PORT: ${PRODUCT_SERVICE_PORT}
+      OLLAMA_URL: ${OLLAMA_URL}
+      DEBUG: ${DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL}
     env_file:
       - .env
+    depends_on:
+      ollama:
+        condition: service_healthy
     networks:
       - backend
     restart: unless-stopped
 
   product_implementation:
     build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_NAME: product_implementation
-        PORT: ${PRODUCT_IMPLEMENTATION_PORT:-8008}
+      context: ./product_implementation
     ports:
-      - "${PRODUCT_IMPLEMENTATION_PORT:-8008}:${PRODUCT_IMPLEMENTATION_PORT:-8008}"
+      - "${PRODUCT_IMPLEMENTATION_PORT}:${PRODUCT_IMPLEMENTATION_PORT}"
     environment:
-      - SERVICE_NAME=product_implementation
-      - PORT=${PRODUCT_IMPLEMENTATION_PORT:-8008}
+      SERVICE_NAME: product_implementation
+      PORT: ${PRODUCT_IMPLEMENTATION_PORT}
+      DEBUG: ${DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL}
+    env_file:
+      - .env
     networks:
       - backend
     restart: unless-stopped
 
   team_service:
     build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_NAME: team_service
-        PORT: ${TEAM_SERVICE_PORT}
+      context: ./team_service
     ports:
       - "${TEAM_SERVICE_PORT}:${TEAM_SERVICE_PORT}"
     environment:
-      - SERVICE_NAME=team_service
-      - PORT=${TEAM_SERVICE_PORT}
-      - DEBUG=${DEBUG}
+      SERVICE_NAME: team_service
+      PORT: ${TEAM_SERVICE_PORT}
+      DEBUG: ${DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL}
     env_file:
       - .env
     networks:
@@ -109,17 +100,14 @@ services:
 
   finance_service:
     build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_NAME: finance_service
-        PORT: ${FINANCE_SERVICE_PORT}
+      context: ./finance_service
     ports:
       - "${FINANCE_SERVICE_PORT}:${FINANCE_SERVICE_PORT}"
     environment:
-      - SERVICE_NAME=finance_service
-      - PORT=${FINANCE_SERVICE_PORT}
-      - DEBUG=${DEBUG}
+      SERVICE_NAME: finance_service
+      PORT: ${FINANCE_SERVICE_PORT}
+      DEBUG: ${DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL}
     env_file:
       - .env
     networks:
@@ -128,18 +116,15 @@ services:
 
   market_service:
     build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_NAME: market_service
-        PORT: ${MARKET_SERVICE_PORT}
+      context: ./market_service
     ports:
       - "${MARKET_SERVICE_PORT}:${MARKET_SERVICE_PORT}"
     environment:
-      - SERVICE_NAME=market_service
-      - PORT=${MARKET_SERVICE_PORT}
-      - DATABASE_URL=postgresql://${MARKET_DB_USER}:${MARKET_DB_PASSWORD}@market-db:${MARKET_DB_PORT}/${MARKET_DB_NAME}
-      - DEBUG=${DEBUG}
+      SERVICE_NAME: market_service
+      PORT: ${MARKET_SERVICE_PORT}
+      DATABASE_URL: postgresql://${MARKET_DB_USER}:${MARKET_DB_PASSWORD}@market-db:5432/${MARKET_DB_NAME}
+      DEBUG: ${DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL}
     env_file:
       - .env
     depends_on:
@@ -160,8 +145,7 @@ services:
     volumes:
       - market-db-data:/var/lib/postgresql/data
     healthcheck:
-      test:
-        ["CMD-SHELL", "pg_isready -U ${MARKET_DB_USER} -d ${MARKET_DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${MARKET_DB_USER} -d ${MARKET_DB_NAME}"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -173,18 +157,15 @@ services:
 
   parsers:
     build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_NAME: parsers
-        PORT: ${PARSERS_PORT}
+      context: ./parsers
     ports:
       - "${PARSERS_PORT}:${PARSERS_PORT}"
     environment:
-      - SERVICE_NAME=parsers
-      - PORT=${PARSERS_PORT}
-      - MARKET_SERVICE_URL=${MARKET_SERVICE_URL}
-      - DEBUG=${DEBUG}
+      SERVICE_NAME: parsers
+      PORT: ${PARSERS_PORT}
+      MARKET_SERVICE_URL: ${MARKET_SERVICE_URL}
+      DEBUG: ${DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL}
     env_file:
       - .env
     depends_on:
@@ -193,16 +174,37 @@ services:
       - backend
     restart: unless-stopped
 
+  ollama:
+    build:
+      context: ./ollama
+    ports:
+      - "${OLLAMA_PORT}:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:11434/api/tags > /dev/null || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+    env_file:
+      - .env
+    networks:
+      - backend
+    restart: unless-stopped
+
   frontend:
     build: ./frontend
     container_name: glasdaq_frontend
     ports:
-      - "5173:5173"
+      - "${FRONTEND_PORT}:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - VITE_API_URL=http://localhost:8000
+      VITE_API_URL: ${VITE_API_URL}
+    env_file:
+      - .env
     networks:
       - backend
 
@@ -212,3 +214,4 @@ networks:
 
 volumes:
   market-db-data:
+  ollama-data:
