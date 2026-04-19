@@ -9,6 +9,7 @@ export default function WorkspaceSelector({
   triggerRef = null,
   targetZone = null,
   usePortal = false,
+  portalSide = 'up', // 'up' | 'right'
 }) {
   const { isActive, toggleBlock } = useDashboardStore()
   const ref = useRef(null)
@@ -23,18 +24,30 @@ export default function WorkspaceSelector({
   }, [onClose, triggerRef])
 
   // Для portal-режима: позиционируем относительно кнопки через fixed.
-  // Явно сбрасываем top/left/transform из CSS-класса, иначе они перебивают bottom/right.
+  // Явно сбрасываем top/left/transform из CSS-класса, иначе они перебивают позицию.
   let portalStyle = {}
   if (usePortal && triggerRef?.current) {
     const rect = triggerRef.current.getBoundingClientRect()
-    portalStyle = {
-      position: 'fixed',
-      top: 'auto',
-      left: 'auto',
-      transform: 'none',
-      bottom: window.innerHeight - rect.top + 8,
-      right: window.innerWidth - rect.right,
-      zIndex: 1000,
+    if (portalSide === 'right') {
+      // Открывается вправо от кнопки, выровнено по верхнему краю кнопки
+      portalStyle = {
+        position: 'fixed',
+        top: rect.top,
+        left: rect.right + 8,
+        transform: 'none',
+        zIndex: 1000,
+      }
+    } else {
+      // Открывается вверх (default — для нижней секции)
+      portalStyle = {
+        position: 'fixed',
+        top: 'auto',
+        left: 'auto',
+        transform: 'none',
+        bottom: window.innerHeight - rect.top + 8,
+        right: window.innerWidth - rect.right,
+        zIndex: 1000,
+      }
     }
   }
 

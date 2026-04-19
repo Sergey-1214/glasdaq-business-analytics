@@ -70,8 +70,9 @@ function NormalSidebar({ isDropTarget }) {
           <WorkspaceSelector
             triggerRef={addBtnRef}
             onClose={() => setSelectorOpen(false)}
-            className="workspace-selector--from-sidebar"
             targetZone="left"
+            usePortal
+            portalSide="right"
           />
         )}
       </div>

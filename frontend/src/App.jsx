@@ -14,7 +14,12 @@ import LeftSidebar from './components/layout/LeftSidebar'
 import RightSidebar from './components/layout/RightSidebar'
 import BottomRow from './components/layout/BottomRow'
 import Block from './components/blocks/Block'
+import AssistantChat from './components/blocks/AssistantChat'
 import './App.css'
+
+const BLOCK_CONTENT = {
+  assistant: <AssistantChat />,
+}
 
 const DROPPABLE_ZONES = ['left', 'right', 'bottom']
 
@@ -49,7 +54,9 @@ function FocusArea() {
   return (
     <div className="focus-area">
       <Block id={block.id} title={block.title} className="focus-area__block">
-        <div className="block-placeholder">Содержимое: {block.title}</div>
+        {BLOCK_CONTENT[block.id] ?? (
+          <div className="block-placeholder">Содержимое: {block.title}</div>
+        )}
       </Block>
     </div>
   )

@@ -15,9 +15,15 @@
 }
 
 .bottom-row__item {
-  min-width: 240px;
-  flex: 1;
+  width: 300px;
+  flex-shrink: 0;
   touch-action: none;
+  height: 100%;
+}
+
+/* Растягиваем block и block__body на всю высоту строки */
+.bottom-row__item .block {
+  height: 100%;
 }
 
 /* Подсветка при drag-over из другой зоны */

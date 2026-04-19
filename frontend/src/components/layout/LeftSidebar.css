@@ -4,6 +4,7 @@
   border-right: 1px solid #1e2030;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 /* Содержимое (блоки) в обычном режиме */

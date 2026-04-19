@@ -1,0 +1,251 @@
+.chat {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Правый сайдбар — фиксированная высота */
+.chat--right {
+  height: 420px;
+}
+
+/* Левый сайдбар — компактный шрифт, фиксированная высота */
+.chat--left {
+  height: 420px;
+  font-size: 11px;
+}
+
+.chat--left .chat__bubble--user {
+  font-size: 11px;
+  padding: 5px 8px;
+  line-height: 17px;
+}
+
+.chat--left .chat__bubble--typing {
+  padding: 8px 10px;
+}
+
+.chat--left .chat__input {
+  font-size: 11px;
+  padding: 6px 8px;
+}
+
+.chat--left .chat__input-area {
+  padding: 6px;
+  gap: 4px;
+}
+
+.chat--left .chat__send {
+  width: 28px;
+  height: 28px;
+}
+
+/* Нижняя секция — заполняет высоту блока */
+.chat--bottom {
+  height: 100%;
+  font-size: 11px;
+}
+
+.chat--bottom .chat__bubble--user {
+  font-size: 11px;
+  padding: 5px 8px;
+  line-height: 17px;
+}
+
+.chat--bottom .chat__messages {
+  padding: 6px;
+  gap: 5px;
+}
+
+.chat--bottom .chat__input {
+  font-size: 11px;
+  padding: 6px 8px;
+}
+
+.chat--bottom .chat__input-area {
+  padding: 6px;
+  gap: 4px;
+}
+
+.chat--bottom .chat__send {
+  width: 28px;
+  height: 28px;
+}
+
+/* В режиме фокуса — растягиваем на весь блок */
+.chat--focused {
+  position: absolute;
+  inset: 0;
+  height: auto !important;
+  font-size: 15px;
+}
+
+.chat__messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat__row {
+  display: flex;
+}
+
+.chat__row--user {
+  justify-content: flex-end;
+}
+
+.chat__row--assistant {
+  justify-content: flex-start;
+}
+
+.chat__bubble {
+  max-width: 88%;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.chat__bubble--user {
+  background: #2e2a4a;
+  color: #d4d0f0;
+  padding: 8px 12px;
+  border-radius: 12px 12px 4px 12px;
+  word-break: break-word;
+}
+
+/* Пузырь ассистента — canvas сам задаёт размер */
+.chat__bubble--assistant {
+  background: #1c1d28;
+  border-radius: 4px 12px 12px 12px;
+  overflow: hidden;
+}
+
+.canvas-msg {
+  width: 100%;
+}
+
+.canvas-msg canvas {
+  display: block;
+}
+
+/* Индикатор печати: три точки */
+.chat__bubble--typing {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 12px 14px;
+}
+
+.chat__bubble--typing span {
+  width: 6px;
+  height: 6px;
+  background: #3a3b55;
+  border-radius: 50%;
+  animation: typing-dot 1.2s ease-in-out infinite;
+}
+
+.chat__bubble--typing span:nth-child(2) { animation-delay: 0.2s; }
+.chat__bubble--typing span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing-dot {
+  0%, 60%, 100% { background: #3a3b55; transform: scale(1); }
+  30% { background: #7c6af5; transform: scale(1.3); }
+}
+
+/* Полноэкранный режим */
+.chat--focused .chat__messages {
+  padding: 20px 0;
+  align-items: center;
+}
+
+.chat--focused .chat__row {
+  width: 100%;
+  max-width: 720px;
+}
+
+.chat--focused .chat__bubble--user {
+  font-size: 15px;
+  padding: 10px 16px;
+}
+
+.chat--focused .chat__input-area {
+  padding: 12px 20px;
+  max-width: 760px;
+  width: 100%;
+  align-self: center;
+}
+
+.chat--focused .chat__input {
+  font-size: 15px;
+  padding: 10px 14px;
+}
+
+.chat--focused .chat__send {
+  width: 42px;
+  height: 42px;
+}
+
+/* Поле ввода */
+.chat__input-area {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid #1e2030;
+  flex-shrink: 0;
+}
+
+.chat__input {
+  flex: 1;
+  background: #0d0e13;
+  border: 1px solid #2a2b3d;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #e2e2e2;
+  resize: none;
+  outline: none;
+  line-height: 18px;
+  max-height: 80px;
+  overflow-y: auto;
+  transition: border-color 0.15s;
+}
+
+.chat__input::placeholder {
+  color: #3a3b55;
+}
+
+.chat__input:focus {
+  border-color: #7c6af5;
+}
+
+.chat__input:disabled {
+  opacity: 0.5;
+}
+
+.chat__send {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  background: #7c6af5;
+  border: none;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.chat__send:hover:not(:disabled) {
+  background: #6a58e0;
+}
+
+.chat__send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

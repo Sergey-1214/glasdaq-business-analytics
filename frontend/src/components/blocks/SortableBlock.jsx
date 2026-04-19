@@ -2,7 +2,12 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { BLOCK_REGISTRY } from '../../store/dashboardStore'
 import Block from './Block'
+import AssistantChat from './AssistantChat'
 import './SortableBlock.css'
+
+const BLOCK_CONTENT = {
+  assistant: <AssistantChat />,
+}
 
 /**
  * Обёртка для Block с поддержкой drag-and-drop.
@@ -38,7 +43,7 @@ export default function SortableBlock({ id, className = '', children }) {
       {...listeners}
     >
       <Block id={id} title={block?.title ?? id}>
-        {children ?? (
+        {children ?? BLOCK_CONTENT[id] ?? (
           <div className="block-placeholder">Содержимое: {block?.title}</div>
         )}
       </Block>
