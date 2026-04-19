@@ -1,15 +1,15 @@
 API used:
     Open Street Map (overpass API)
-    Mos.ru API     -- TEMPORARLY IMPOSSIBLE
+    Mos.ru API
     Yandex API     -- IMPOSSIBLE -- PURCHASEBLE
     2GIS API       -- IMPOSSIBLE -- PURCHASEBLE
     Google map API -- IMPOSSIBLE -- PROXI NEEDED
     Cian/Avito API -- NOT USED
 Version:
-    beta 1.8
+    release 1.0
 Next update:
-    14.04.2026
+    -
 Changelog:
     - Оптимизирована обработка результатов парсинга
     - Проверены апи яндекса, гугла и 2гис
-    - Код отфильтрован от нейрослопа на 30%
+    - Код отфильтрован от нейрослопа на 66%
