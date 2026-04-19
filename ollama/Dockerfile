@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
 
 # Создание скрипта инициализации
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
 
 # Создание директории для моделей
 RUN mkdir -p /root/.ollama/models
