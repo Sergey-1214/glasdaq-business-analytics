@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.db.models import MarketPointMetric
+from src.exceptions import IngestionConflictError, IngestionError
 from src.repositories import IngestionRepository
 from src.schemas import IngestionRequest, IngestionResponse
 
@@ -68,6 +69,15 @@ class IngestionService:
 
             self.repository.mark_batch_completed(batch)
             self.db.commit()
+        except IntegrityError as exc:
+            self.db.rollback()
+
+            persisted_batch = self.db.get(type(batch), batch.id)
+            if persisted_batch is not None:
+                self.repository.mark_batch_failed(persisted_batch, f"Database integrity error: {exc}")
+                self.db.commit()
+
+            raise IngestionConflictError("Database conflict while ingesting records") from exc
         except Exception as exc:
             self.db.rollback()
 
@@ -76,7 +86,7 @@ class IngestionService:
                 self.repository.mark_batch_failed(persisted_batch, str(exc))
                 self.db.commit()
 
-            raise HTTPException(status_code=500, detail=f"Ingestion failed: {exc}") from exc
+            raise IngestionError(f"Ingestion failed: {exc}") from exc
 
         return IngestionResponse(
             batch_id=str(batch.id),
