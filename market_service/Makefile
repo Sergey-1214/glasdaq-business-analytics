@@ -21,6 +21,15 @@ test:
 run: 
 	uvicorn src.main:app --reload --host 0.0.0.0 --port $(PORT)
 
+migrate:
+	alembic upgrade head
+
+migrate-down:
+	alembic downgrade -1
+
+migration:
+	alembic revision --autogenerate -m "$(message)"
+
 docker-build: 
 	docker build \
 		--build-arg SERVICE_NAME=$(SERVICE_NAME) \
