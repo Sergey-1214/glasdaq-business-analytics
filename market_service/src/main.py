@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 
+from src.routes import health_router, ingestion_router
+
 
 app = FastAPI(
     title="Market Service",
@@ -7,17 +9,5 @@ app = FastAPI(
     version="1.0.0",
 )
 
-
-@app.get("/")
-async def root():
-    return {
-        "service": "market_service",
-        "status": "ok",
-    }
-
-
-@app.get("/health")
-async def health():
-    return {
-        "status": "healthy",
-    }
+app.include_router(health_router)
+app.include_router(ingestion_router)
