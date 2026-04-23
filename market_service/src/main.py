@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from src.exceptions import AppError
-from src.routes import health_router, ingestion_router
+from src.routes import health_router, idea_parser_router, ingestion_router
 from src.schemas import ErrorResponse
 
 
@@ -33,4 +33,5 @@ async def handle_unexpected_error(_: Request, exc: Exception):
 
 
 app.include_router(health_router)
+app.include_router(idea_parser_router)
 app.include_router(ingestion_router)
