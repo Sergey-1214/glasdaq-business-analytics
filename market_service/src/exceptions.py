@@ -20,3 +20,13 @@ class IngestionValidationError(IngestionError):
 class IngestionConflictError(IngestionError):
     status_code = 409
     error_code = "ingestion_conflict_error"
+
+
+class ExternalServiceError(AppError):
+    status_code = 502
+    error_code = "external_service_error"
+
+
+class IdeaParsingError(AppError):
+    status_code = 422
+    error_code = "idea_parsing_error"
