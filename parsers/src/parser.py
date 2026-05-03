@@ -9,6 +9,42 @@ from urllib3.util.retry import Retry
 
 MOS_API_KEY = "30100db1f7b65376154f5c1be70ca7ca"
 
+def send_to_api(df: pd.DataFrame, api_url: str, batch_size: int = 100) -> dict:
+    total = len(df)
+    success = 0
+    failed = 0
+    
+    df_clean = df.where(pd.notnull(df), None)
+    records = df_clean.to_dict(orient='records')
+    
+    print(f"Отправка {total} записей в {api_url}")
+    
+    for i in range(0, total, batch_size):
+        batch = records[i:i+batch_size]
+        
+        try:
+            resp = requests.post(
+                api_url,
+                json=batch,
+                headers={'Content-Type': 'application/json'},
+                timeout=30
+            )
+            
+            if resp.status_code == 200 or resp.status_code == 201:
+                success += len(batch)
+                print(f"Пачка {i//batch_size + 1}: отправлено {len(batch)} записей")
+            else:
+                failed += len(batch)
+                print(f"Ошибка пачки {i//batch_size + 1}: {resp.status_code} - {resp.text[:100]}")
+                
+        except Exception as e:
+            failed += len(batch)
+            print(f"Ошибка отправки: {e}")
+        
+        time.sleep(0.5)
+    
+    return {'total': total, 'success': success, 'failed': failed}
+
 def create_safe_session(retries=10, backoff_factor=2):
     session = requests.Session()
     retry = Retry(
@@ -23,51 +59,33 @@ def create_safe_session(retries=10, backoff_factor=2):
     session.mount('https://', adapter)
     return session
 
-def safe_overpass_request(query, max_retries=3):
-    overpass_url = "http://overpass-api.de/api/interpreter"
-    session = create_safe_session()
+def safe_overpass_request(query: str, retries: int = 3, delay: int = 2) -> dict:
+    urls = [
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+        "https://overpass.openstreetmap.fr/api/interpreter"
+    ]
     
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-    }
-    
-    for attempt in range(max_retries):
-        try:
-            response = session.post(
-                overpass_url, 
-                data={'data': query},
-                headers=headers,
-                timeout=90
-            )
-            
-            if response.status_code == 200:
-                return response.json()
-            elif response.status_code == 429:
-                wait_time = (attempt + 1) * 10
-                print(f"Rate limited, waiting {wait_time} seconds...")
-                time.sleep(wait_time)
-            elif response.status_code == 406:
-                print(f"406 error, trying GET method...")
-                response = session.get(overpass_url, params={'data': query}, headers=headers, timeout=90)
-                if response.status_code == 200:
-                    return response.json()
-                time.sleep(3)
-            else:
-                print(f"HTTP {response.status_code}, attempt {attempt + 1}")
-                time.sleep(3)
+    for url in urls:
+        for attempt in range(retries):
+            try:
+                print(f"попытка {url}")
+                resp = requests.get(
+                    url,
+                    params={"data": query},
+                    headers={"Accept": "application/json"},
+                    timeout=60
+                )
+                resp.raise_for_status()
                 
-        except requests.exceptions.Timeout:
-            print(f"Timeout on attempt {attempt + 1}")
-            time.sleep(5)
-        except requests.exceptions.ConnectionError:
-            print(f"Connection error on attempt {attempt + 1}")
-            time.sleep(5)
-        except Exception as e:
-            print(f"Unexpected error on attempt {attempt + 1}: {e}")
-            time.sleep(5)
+                if resp.text and resp.text.strip():
+                    return resp.json()
+                    
+            except Exception as e:
+                print(f"ошибка: {e}")
+            
+            time.sleep(delay)
+        time.sleep(3)
     
     return None
 
@@ -407,10 +425,54 @@ def main():
     
     final_df.to_csv('moscow_coffee_shops_data.csv', index=False, encoding='utf-8-sig')
     
+    print("Отправка данных в API...")
+    api_url = "http://localhost:8000/api/v1/ingest/coffee-shops"
+    send_result = send_to_api(final_df, api_url)
+    print(f"Результат отправки: {send_result}")
+    
     print(f"Данные сохранены в moscow_coffee_shops_data.csv")
     print(f"Всего собрано {len(final_df)} точек")
     
     return final_df
+
+def send_to_api(df: pd.DataFrame, api_url: str, batch_size: int = 100) -> dict:
+    """Отправляет данные в API пачками"""
+    import requests
+    
+    total = len(df)
+    success = 0
+    failed = 0
+    
+    df_clean = df.where(pd.notnull(df), None)
+    records = df_clean.to_dict(orient='records')
+    
+    print(f"Отправка {total} записей в {api_url}")
+    
+    for i in range(0, total, batch_size):
+        batch = records[i:i+batch_size]
+        
+        try:
+            resp = requests.post(
+                api_url,
+                json=batch,
+                headers={'Content-Type': 'application/json'},
+                timeout=30
+            )
+            
+            if resp.status_code == 200 or resp.status_code == 201:
+                success += len(batch)
+                print(f"Пачка {i//batch_size + 1}: отправлено {len(batch)} записей")
+            else:
+                failed += len(batch)
+                print(f"Ошибка пачки {i//batch_size + 1}: {resp.status_code}")
+                
+        except Exception as e:
+            failed += len(batch)
+            print(f"Ошибка отправки: {e}")
+        
+        time.sleep(0.5)
+    
+    return {'total': total, 'success': success, 'failed': failed}
 
 if __name__ == "__main__":
     df = main()
