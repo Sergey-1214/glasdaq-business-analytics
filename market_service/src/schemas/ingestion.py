@@ -25,6 +25,7 @@ class MarketPointMetricsIngest(BaseModel):
     median_income: int | None = None
     office_density: int | None = None
     average_rent_m2: float | None = None
+    average_check: float | None = None
     available_commercial_spaces: int | None = None
     pedestrian_traffic_estimate: int | None = None
     metrics_source_label: str | None = None

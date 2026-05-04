@@ -109,6 +109,7 @@ class MarketPointMetric(Base):
     median_income: Mapped[int | None] = mapped_column(Integer, nullable=True)
     office_density: Mapped[int | None] = mapped_column(Integer, nullable=True)
     average_rent_m2: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    average_check: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
     available_commercial_spaces: Mapped[int | None] = mapped_column(Integer, nullable=True)
     pedestrian_traffic_estimate: Mapped[int | None] = mapped_column(Integer, nullable=True)
     metrics_source_label: Mapped[str | None] = mapped_column(String(100), nullable=True)
