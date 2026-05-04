@@ -15,10 +15,12 @@ import RightSidebar from './components/layout/RightSidebar'
 import BottomRow from './components/layout/BottomRow'
 import Block from './components/blocks/Block'
 import AssistantChat from './components/blocks/AssistantChat'
+import AccountBlock from './components/blocks/AccountBlock'
 import './App.css'
 
 const BLOCK_CONTENT = {
   assistant: <AssistantChat />,
+  account: <AccountBlock />,
 }
 
 const DROPPABLE_ZONES = ['left', 'right', 'bottom']

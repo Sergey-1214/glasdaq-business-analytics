@@ -3,14 +3,15 @@ import { persist } from 'zustand/middleware'
 
 async function apiLogin(email, password) {
   return {
-    user: { id: 1, email, name: email.split('@')[0] },
+    user: { id: 1, email, name: email.split('@')[0], createdAt: '2025-01-15', plan: 'Pro' },
     access_token: 'mock-token-' + Date.now(),
   }
 }
 
 async function apiRegister(name, email, password) {
+  const today = new Date().toISOString().slice(0, 10)
   return {
-    user: { id: Date.now(), email, name },
+    user: { id: Date.now(), email, name, createdAt: today, plan: 'Basic' },
     access_token: 'mock-token-' + Date.now(),
   }
 }

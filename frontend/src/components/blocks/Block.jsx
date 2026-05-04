@@ -1,5 +1,6 @@
 import { Maximize2, Minimize2, X } from 'lucide-react'
 import { useDashboardStore } from '../../store/dashboardStore'
+import ErrorBoundary from './ErrorBoundary'
 import './Block.css'
 
 export default function Block({ id, title, children, className = '' }) {
@@ -32,7 +33,9 @@ export default function Block({ id, title, children, className = '' }) {
           )}
         </div>
       </div>
-      <div className="block__body">{children}</div>
+      <div className="block__body">
+        <ErrorBoundary>{children}</ErrorBoundary>
+      </div>
     </div>
   )
 }

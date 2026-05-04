@@ -117,6 +117,50 @@
   box-shadow: 0 0 0 3px rgba(124, 106, 245, 0.15);
 }
 
+.auth-form__input--error {
+  border-color: rgba(224, 92, 106, 0.6);
+}
+
+.auth-form__input--error:focus {
+  border-color: #e05c6a;
+  box-shadow: 0 0 0 3px rgba(224, 92, 106, 0.15);
+}
+
+.auth-form__input-wrap {
+  position: relative;
+}
+
+.auth-form__input-wrap .auth-form__input {
+  padding-right: 38px;
+}
+
+.auth-form__eye {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #3a3b55;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.auth-form__eye:hover {
+  color: #6b6f80;
+}
+
+.auth-form__spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .auth-form__error {
   font-size: 13px;
   color: #e05c6a;

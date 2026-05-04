@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import './AuthPage.css'
 
@@ -9,6 +10,8 @@ export default function AuthPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [localError, setLocalError] = useState('')
 
   const { login, register, loading, error, clearError } = useAuthStore()
@@ -22,6 +25,8 @@ export default function AuthPage() {
     setEmail('')
     setPassword('')
     setConfirm('')
+    setShowPassword(false)
+    setShowConfirm(false)
   }
 
   async function handleSubmit(e) {
@@ -29,13 +34,22 @@ export default function AuthPage() {
     setLocalError('')
     clearError()
 
+    if (!email.includes('@')) {
+      setLocalError('Введите корректный email')
+      return
+    }
+
     if (tab === 'register') {
-      if (password !== confirm) {
-        setLocalError('Пароли не совпадают')
+      if (name.trim().length < 2) {
+        setLocalError('Введите имя (минимум 2 символа)')
         return
       }
       if (password.length < 6) {
         setLocalError('Пароль должен быть не менее 6 символов')
+        return
+      }
+      if (password !== confirm) {
+        setLocalError('Пароли не совпадают')
         return
       }
     }
@@ -52,6 +66,7 @@ export default function AuthPage() {
   }
 
   const displayError = localError || error
+  const inputClass = (base) => `${base} ${displayError ? base + '--error' : ''}`
 
   return (
     <div className="auth-page">
@@ -84,7 +99,7 @@ export default function AuthPage() {
                 type="text"
                 placeholder="Иван Иванов"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => { setName(e.target.value); setLocalError('') }}
                 required
                 autoComplete="name"
               />
@@ -94,11 +109,11 @@ export default function AuthPage() {
           <div className="auth-form__field">
             <label className="auth-form__label">Email</label>
             <input
-              className="auth-form__input"
+              className={inputClass('auth-form__input')}
               type="email"
               placeholder="you@example.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => { setEmail(e.target.value); setLocalError(''); clearError() }}
               required
               autoComplete="email"
             />
@@ -106,29 +121,49 @@ export default function AuthPage() {
 
           <div className="auth-form__field">
             <label className="auth-form__label">Пароль</label>
-            <input
-              className="auth-form__input"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
-            />
+            <div className="auth-form__input-wrap">
+              <input
+                className={inputClass('auth-form__input')}
+                type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setLocalError(''); clearError() }}
+                required
+                autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
+              />
+              <button
+                type="button"
+                className="auth-form__eye"
+                onClick={() => setShowPassword((v) => !v)}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
           </div>
 
           {tab === 'register' && (
             <div className="auth-form__field">
               <label className="auth-form__label">Повторите пароль</label>
-              <input
-                className="auth-form__input"
-                type="password"
-                placeholder="••••••••"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                required
-                autoComplete="new-password"
-              />
+              <div className="auth-form__input-wrap">
+                <input
+                  className={inputClass('auth-form__input')}
+                  type={showConfirm ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={confirm}
+                  onChange={(e) => { setConfirm(e.target.value); setLocalError('') }}
+                  required
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  className="auth-form__eye"
+                  onClick={() => setShowConfirm((v) => !v)}
+                  tabIndex={-1}
+                >
+                  {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
             </div>
           )}
 
@@ -137,11 +172,9 @@ export default function AuthPage() {
           )}
 
           <button className="auth-form__submit" type="submit" disabled={loading}>
-            {loading
-              ? 'Загрузка...'
-              : tab === 'login'
-              ? 'Войти'
-              : 'Создать аккаунт'}
+            {loading ? (
+              <Loader2 size={16} className="auth-form__spinner" />
+            ) : tab === 'login' ? 'Войти' : 'Создать аккаунт'}
           </button>
         </form>
       </div>

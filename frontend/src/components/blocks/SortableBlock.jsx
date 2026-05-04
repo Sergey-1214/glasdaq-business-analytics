@@ -3,10 +3,12 @@ import { CSS } from '@dnd-kit/utilities'
 import { BLOCK_REGISTRY } from '../../store/dashboardStore'
 import Block from './Block'
 import AssistantChat from './AssistantChat'
+import AccountBlock from './AccountBlock'
 import './SortableBlock.css'
 
 const BLOCK_CONTENT = {
   assistant: <AssistantChat />,
+  account: <AccountBlock />,
 }
 
 export default function SortableBlock({ id, className = '', children }) {
