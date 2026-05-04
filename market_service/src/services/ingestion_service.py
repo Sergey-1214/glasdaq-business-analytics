@@ -60,6 +60,7 @@ class IngestionService:
                         median_income=record.metrics.median_income,
                         office_density=record.metrics.office_density,
                         average_rent_m2=record.metrics.average_rent_m2,
+                        average_check=record.metrics.average_check,
                         available_commercial_spaces=record.metrics.available_commercial_spaces,
                         pedestrian_traffic_estimate=record.metrics.pedestrian_traffic_estimate,
                         metrics_source_label=record.metrics.metrics_source_label,
