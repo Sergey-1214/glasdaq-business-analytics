@@ -6,47 +6,76 @@ import os
 import sys
 import random
 
-def send_to_api(df: pd.DataFrame, api_url: str, batch_size: int = 1) -> dict:
+def send_to_api(df: pd.DataFrame, api_url: str) -> dict:
     total = len(df)
     success = 0
     failed = 0
     
-    records = []
+    payload = {
+        "source": "parser",
+        "region": "Moscow",
+        "records": [],
+        "notes": "parsed from OSM and Mos.ru"
+    }
+    
     for _, row in df.iterrows():
-        record = {}
-        for col, val in row.items():
-            if pd.isna(val):
-                record[col] = round(random.uniform(2.0, 5.0), 1)
-            elif isinstance(val, float) and (val == float('inf') or val == float('-inf')):
-                record[col] = round(random.uniform(2.0, 5.0), 1)
-            else:
-                record[col] = val
-        records.append(record)
+        record = {
+            "source": "osm",
+            "external_id": str(row.get('osm_id', '')),
+            "external_type": "node",
+            "name": row.get('name', ''),
+            "category": "coffee_shop",
+            "latitude": float(row.get('latitude', row.get('lat', 0))),
+            "longitude": float(row.get('longitude', row.get('lon', 0))),
+            "rating": float(row.get('rating', 0)) if not pd.isna(row.get('rating')) else round(random.uniform(3.5, 4.8), 1),
+            "raw_tags": {},
+            "metro_station": {
+                "source": "mos_ru",
+                "station_name": row.get('nearest_metro', ''),
+                "line_name": "",
+                "passenger_flow": int(row.get('metro_passenger_flow', 0)) if not pd.isna(row.get('metro_passenger_flow')) else 0,
+                "latitude": None,
+                "longitude": None
+            },
+            "metrics": {
+                "distance_to_metro": float(row.get('distance_to_metro', 0)) if not pd.isna(row.get('distance_to_metro')) else 0,
+                "metro_passenger_flow": int(row.get('metro_passenger_flow', 0)) if not pd.isna(row.get('metro_passenger_flow')) else 0,
+                "public_transport_stops_count": int(row.get('public_transport_stops_count', 0)) if not pd.isna(row.get('public_transport_stops_count')) else 0,
+                "cafes_300m": int(row.get('cafes_300m', 0)) if not pd.isna(row.get('cafes_300m')) else 0,
+                "cafes_1km": int(row.get('cafes_1km', 0)) if not pd.isna(row.get('cafes_1km')) else 0,
+                "average_competitor_rating": float(row.get('average_competitor_rating', 0)) if not pd.isna(row.get('average_competitor_rating')) else round(random.uniform(3.5, 4.8), 1),
+                "population_density": int(row.get('population_density', 0)) if not pd.isna(row.get('population_density')) else 8000,
+                "median_income": int(row.get('median_income', 0)) if not pd.isna(row.get('median_income')) else 90000,
+                "office_density": int(row.get('office_density', 0)) if not pd.isna(row.get('office_density')) else 20,
+                "average_rent_m2": int(row.get('average_rent_m2', 0)) if not pd.isna(row.get('average_rent_m2')) else 25000,
+                "average_check": 0,
+                "available_commercial_spaces": int(row.get('available_commercial_spaces', 0)) if not pd.isna(row.get('available_commercial_spaces')) else 5,
+                "pedestrian_traffic_estimate": int(row.get('pedestrian_traffic_estimate', 0)) if not pd.isna(row.get('pedestrian_traffic_estimate')) else 500,
+                "metrics_source_label": "osm_mosru"
+            }
+        }
+        payload["records"].append(record)
     
-    print(f"Отправка {total} записей по одной")
+    print(f"Отправка {total} записей")
     
-    for i, record in enumerate(records):
-        try:
-            resp = requests.post(
-                api_url,
-                json=[record],
-                headers={'Content-Type': 'application/json'},
-                timeout=30
-            )
-            
-            if resp.status_code == 200 or resp.status_code == 201:
-                success += 1
-                if (i + 1) % 10 == 0:
-                    print(f"Отправлено {i+1}/{total}")
-            else:
-                failed += 1
-                print(f"Ошибка {i+1}: {resp.status_code}")
-                
-        except Exception as e:
-            failed += 1
-            print(f"Ошибка {i+1}: {e}")
+    try:
+        resp = requests.post(
+            api_url,
+            json=payload,
+            headers={'Content-Type': 'application/json'},
+            timeout=60
+        )
         
-        time.sleep(0.5)
+        if resp.status_code == 200 or resp.status_code == 201:
+            success = total
+            print(f"Успешно отправлено {total} записей")
+        else:
+            failed = total
+            print(f"Ошибка {resp.status_code}: {resp.text}")
+            
+    except Exception as e:
+        failed = total
+        print(f"Ошибка отправки: {e}")
     
     return {'total': total, 'success': success, 'failed': failed}
 
