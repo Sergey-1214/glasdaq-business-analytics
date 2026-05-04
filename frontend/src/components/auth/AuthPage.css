@@ -38,7 +38,6 @@
   object-fit: contain;
 }
 
-/* Tabs */
 .auth-tabs {
   display: flex;
   background: #0d0e13;
@@ -72,7 +71,6 @@
   color: #e2e2e2;
 }
 
-/* Form */
 .auth-form {
   display: flex;
   flex-direction: column;

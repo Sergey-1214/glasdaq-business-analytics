@@ -7,7 +7,6 @@
   overflow: hidden;
 }
 
-/* Содержимое (блоки) в обычном режиме */
 .left-sidebar__blocks {
   flex: 1;
   overflow-y: auto;
@@ -43,7 +42,6 @@
   border-color: #555;
 }
 
-/* Подсветка при drag-over из другой зоны */
 .left-sidebar--drop-target .left-sidebar__blocks {
   outline: 2px dashed rgba(124, 106, 245, 0.7);
   outline-offset: -4px;
@@ -52,7 +50,6 @@
   transition: background 0.15s, outline-color 0.15s;
 }
 
-/* Режим фокуса: узкий иконочный сайдбар */
 .left-sidebar--narrow {
   width: 56px;
   align-items: center;

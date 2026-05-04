@@ -3,12 +3,10 @@
   flex-direction: column;
 }
 
-/* Правый сайдбар — фиксированная высота */
 .chat--right {
   height: 420px;
 }
 
-/* Левый сайдбар — компактный шрифт, фиксированная высота */
 .chat--left {
   height: 420px;
   font-size: 11px;
@@ -39,7 +37,6 @@
   height: 28px;
 }
 
-/* Нижняя секция — заполняет высоту блока */
 .chat--bottom {
   height: 100%;
   font-size: 11px;
@@ -71,7 +68,6 @@
   height: 28px;
 }
 
-/* В режиме фокуса — растягиваем на весь блок */
 .chat--focused {
   position: absolute;
   inset: 0;
@@ -115,7 +111,6 @@
   word-break: break-word;
 }
 
-/* Пузырь ассистента — canvas сам задаёт размер */
 .chat__bubble--assistant {
   background: #1c1d28;
   border-radius: 4px 12px 12px 12px;
@@ -130,7 +125,6 @@
   display: block;
 }
 
-/* Индикатор печати: три точки */
 .chat__bubble--typing {
   display: flex;
   align-items: center;
@@ -154,7 +148,6 @@
   30% { background: #7c6af5; transform: scale(1.3); }
 }
 
-/* Полноэкранный режим */
 .chat--focused .chat__messages {
   padding: 20px 0;
   align-items: center;
@@ -187,7 +180,6 @@
   height: 42px;
 }
 
-/* Поле ввода */
 .chat__input-area {
   display: flex;
   align-items: flex-end;

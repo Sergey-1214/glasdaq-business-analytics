@@ -36,7 +36,6 @@ ul {
   padding: 0;
 }
 
-/* Кастомные скроллбары */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -59,7 +58,6 @@ ul {
   background: transparent;
 }
 
-/* Firefox */
 * {
   scrollbar-width: thin;
   scrollbar-color: #2a2b3d transparent;

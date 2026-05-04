@@ -41,7 +41,6 @@
   padding: 8px;
 }
 
-/* Подсветка при drag-over из другой зоны */
 .right-sidebar--drop-target .right-sidebar__blocks {
   outline: 2px dashed rgba(124, 106, 245, 0.7);
   outline-offset: -4px;

@@ -14,15 +14,12 @@ const MOCK_RESPONSES = [
   'Добрый день! Я ваш бизнес-ассистент. Могу помочь с анализом рынка, финансовыми показателями или стратегическим планированием. Что вас интересует?',
 ]
 
-// Конфиг шрифта в зависимости от зоны и режима фокуса
 function getFontConfig(focused, zone) {
   if (focused) return { lineHeight: 26, pad: 14, font: '15px Inter, system-ui, sans-serif' }
   if (zone === 'left' || zone === 'bottom') return { lineHeight: 17, pad: 7, font: '11px Inter, system-ui, sans-serif' }
   return { lineHeight: 20, pad: 10, font: '13px Inter, system-ui, sans-serif' }
 }
 
-// Рендерит текст ассистента на canvas через pretext.
-// Фикс мыльности: учитываем devicePixelRatio для чёткого текста на HiDPI.
 function CanvasMessage({ text, fontConfig }) {
   const wrapperRef = useRef(null)
   const canvasRef = useRef(null)
@@ -44,13 +41,11 @@ function CanvasMessage({ text, fontConfig }) {
       const logicalWidth = wrapper.clientWidth
       const textWidth = logicalWidth - pad * 2
 
-      // pretext: layout без DOM reflow
       const prepared = prepareWithSegments(text, font)
       const { lines, height } = layoutWithLines(prepared, textWidth, lineHeight)
 
       const logicalHeight = height + pad * 2
 
-      // Физические пиксели = логические × DPR → чёткий текст на ретина
       canvas.width = logicalWidth * dpr
       canvas.height = logicalHeight * dpr
       canvas.style.width = `${logicalWidth}px`
@@ -60,7 +55,6 @@ function CanvasMessage({ text, fontConfig }) {
       ctx.font = font
       ctx.textBaseline = 'top'
 
-      // Позиции каждого слова в логических пикселях
       const words = []
       for (let li = 0; li < lines.length; li++) {
         const lineWords = lines[li].text.split(' ').filter(Boolean)
@@ -72,7 +66,6 @@ function CanvasMessage({ text, fontConfig }) {
         }
       }
 
-      // Анимация слово за словом
       let idx = 0
       function step() {
         ctx.clearRect(0, 0, logicalWidth, logicalHeight)

@@ -7,7 +7,6 @@ import SortableBlock from '../blocks/SortableBlock'
 import WorkspaceSelector from '../ui/WorkspaceSelector'
 import './LeftSidebar.css'
 
-// Режим фокуса: узкий сайдбар с иконками всех активных блоков
 function FocusSidebar() {
   const { zones, focusedBlockId, setFocus, clearFocus } = useDashboardStore()
   const allActiveIds = Object.values(zones).flat()
@@ -39,7 +38,6 @@ function FocusSidebar() {
   )
 }
 
-// Обычный режим: блоки левой зоны, перетаскиваемые
 function NormalSidebar({ isDropTarget }) {
   const { zones } = useDashboardStore()
   const leftIds = zones.left

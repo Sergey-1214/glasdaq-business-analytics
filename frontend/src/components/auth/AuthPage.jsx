@@ -4,7 +4,7 @@ import { useAuthStore } from '../../store/authStore'
 import './AuthPage.css'
 
 export default function AuthPage() {
-  const [tab, setTab] = useState('login') // 'login' | 'register'
+  const [tab, setTab] = useState('login')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -48,7 +48,6 @@ export default function AuthPage() {
       }
       navigate('/', { replace: true })
     } catch {
-      // ошибка уже в store.error
     }
   }
 

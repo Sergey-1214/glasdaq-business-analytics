@@ -21,12 +21,10 @@
   height: 100%;
 }
 
-/* Растягиваем block и block__body на всю высоту строки */
 .bottom-row__item .block {
   height: 100%;
 }
 
-/* Подсветка при drag-over из другой зоны */
 .bottom-row--drop-target {
   outline: 2px dashed rgba(124, 106, 245, 0.7);
   outline-offset: -4px;

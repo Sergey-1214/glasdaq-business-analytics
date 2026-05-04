@@ -1,4 +1,3 @@
 .sortable-block {
-  /* Обязательно для корректной работы pointer events в @dnd-kit */
   touch-action: none;
 }

@@ -20,14 +20,11 @@ export const useDashboardStore = create((set, get) => ({
 
   focusedBlockId: null,
 
-  // Проверить активен ли блок (есть ли в любой зоне)
   isActive: (id) => {
     const { zones } = get()
     return Object.values(zones).some((arr) => arr.includes(id))
   },
 
-  // Добавить/убрать блок.
-  // targetZone — зона для добавления; если не передана, ищет самую свободную (кроме center).
   toggleBlock: (id, targetZone = null) => set((state) => {
     const currentZone = Object.entries(state.zones)
       .find(([, ids]) => ids.includes(id))?.[0]
@@ -42,12 +39,10 @@ export const useDashboardStore = create((set, get) => ({
       }
     }
 
-    // Определяем зону для добавления
     let addToZone
     if (targetZone) {
       addToZone = targetZone
     } else {
-      // Самая свободная зона (исключая center)
       const candidates = ['left', 'right', 'bottom']
       addToZone = candidates.reduce((min, z) =>
         state.zones[z].length < state.zones[min].length ? z : min
@@ -62,7 +57,6 @@ export const useDashboardStore = create((set, get) => ({
     }
   }),
 
-  // Перестановка блоков внутри одной зоны
   reorderZone: (zone, oldIndex, newIndex) => set((state) => {
     const arr = [...state.zones[zone]]
     const [item] = arr.splice(oldIndex, 1)
@@ -70,7 +64,6 @@ export const useDashboardStore = create((set, get) => ({
     return { zones: { ...state.zones, [zone]: arr } }
   }),
 
-  // Перемещение блока в другую зону
   moveBlock: (id, fromZone, toZone, toIndex) => set((state) => {
     const fromArr = state.zones[fromZone].filter((b) => b !== id)
     const toArr = [...state.zones[toZone]]

@@ -1,4 +1,3 @@
-/* Обычный режим: 3 колонки */
 .dashboard {
   display: grid;
   grid-template-areas:
@@ -11,7 +10,6 @@
   background: #0d0e13;
 }
 
-/* Режим фокуса: 2 колонки — узкий сайдбар + всё остальное */
 .dashboard--focus {
   grid-template-areas:
     'topbar topbar'
@@ -26,7 +24,6 @@
   overflow: hidden;
 }
 
-/* Зона карты */
 .map-area {
   flex: 1;
   overflow: hidden;
@@ -45,7 +42,6 @@
   font-size: 14px;
 }
 
-/* Зона сфокусированного блока */
 .focus-area {
   grid-area: main;
   padding: 8px;
@@ -56,20 +52,17 @@
   height: 100%;
 }
 
-/* Общий плейсхолдер для содержимого блоков */
 .block-placeholder {
   padding: 12px;
   color: #555;
   font-size: 13px;
 }
 
-/* Блок, летящий за курсором во время drag */
 .drag-overlay-block {
   box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.7),
     0 0 0 1px rgba(124, 106, 245, 0.4);
   border-radius: 8px;
   cursor: grabbing;
-  /* Ширина: берём ту же что у блока в правом сайдбаре */
   width: 284px;
 }

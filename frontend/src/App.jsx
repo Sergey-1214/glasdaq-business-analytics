@@ -23,7 +23,6 @@ const BLOCK_CONTENT = {
 
 const DROPPABLE_ZONES = ['left', 'right', 'bottom']
 
-// pointerWithin точнее для контейнеров, closestCenter — запасной вариант
 function collisionDetection(args) {
   const pointerCollisions = pointerWithin(args)
   if (pointerCollisions.length > 0) return pointerCollisions
@@ -66,9 +65,7 @@ export default function App() {
   const { zones, focusedBlockId, reorderZone, moveBlock } = useDashboardStore()
   const isFocusMode = focusedBlockId !== null
 
-  // id блока, который сейчас тащат (для DragOverlay)
   const [activeId, setActiveId] = useState(null)
-  // зона, над которой висит блок из ДРУГОЙ зоны (для подсветки)
   const [dragOverZone, setDragOverZone] = useState(null)
 
   const sensors = useSensors(
@@ -85,7 +82,6 @@ export default function App() {
       return
     }
 
-    // Берём свежее состояние стора, чтобы не было stale-closure
     const { zones: currentZones } = useDashboardStore.getState()
     const aId = String(active.id)
     const oId = String(over.id)
@@ -96,7 +92,6 @@ export default function App() {
     const sourceZone = findZone(aId)
     const destZone = DROPPABLE_ZONES.includes(oId) ? oId : findZone(oId)
 
-    // Подсвечиваем только если тащим в ДРУГУЮ зону
     setDragOverZone(destZone && destZone !== sourceZone ? destZone : null)
   }
 
@@ -115,7 +110,6 @@ export default function App() {
     const sourceZone = findZone(activeId)
     if (!sourceZone) return
 
-    // Бросили на контейнер зоны (пустое место)
     if (DROPPABLE_ZONES.includes(overId)) {
       if (sourceZone !== overId) {
         moveBlock(activeId, sourceZone, overId, zones[overId].length)
@@ -123,7 +117,6 @@ export default function App() {
       return
     }
 
-    // Бросили на конкретный блок
     const destZone = findZone(overId)
     if (!destZone) return
 
@@ -171,7 +164,6 @@ export default function App() {
         )}
       </div>
 
-      {/* DragOverlay: рендерится поверх всего через портал, не клипается */}
       <DragOverlay>
         {activeBlock ? (
           <div className="drag-overlay-block" style={{ pointerEvents: 'none' }}>

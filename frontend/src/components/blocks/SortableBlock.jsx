@@ -9,11 +9,6 @@ const BLOCK_CONTENT = {
   assistant: <AssistantChat />,
 }
 
-/**
- * Обёртка для Block с поддержкой drag-and-drop.
- * Используется во всех зонах: left, right, bottom.
- * className — дополнительный класс для управления размером в контексте зоны.
- */
 export default function SortableBlock({ id, className = '', children }) {
   const block = BLOCK_REGISTRY.find((b) => b.id === id)
 
@@ -26,8 +21,6 @@ export default function SortableBlock({ id, className = '', children }) {
     isDragging,
   } = useSortable({ id })
 
-  // Когда блок тащат — оставляем "слот" почти невидимым,
-  // реальный визуал показывает DragOverlay в App.jsx
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
