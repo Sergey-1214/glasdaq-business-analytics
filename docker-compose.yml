@@ -14,6 +14,7 @@ services:
       MARKET_SERVICE_URL: ${MARKET_SERVICE_URL}
       PRODUCT_IMPLEMENTATION_URL: ${PRODUCT_IMPLEMENTATION_URL}
       PARSERS_URL: ${PARSERS_URL}
+      USER_AUTH_SERVICE_URL: ${USER_AUTH_SERVICE_URL:-http://user_auth_service:8007}
       DEBUG: ${DEBUG}
       LOG_LEVEL: ${LOG_LEVEL}
     env_file:
@@ -26,6 +27,7 @@ services:
       - market_service
       - product_implementation
       - parsers
+      - user_auth_service
     networks:
       - backend
     restart: unless-stopped
@@ -108,6 +110,52 @@ services:
       PORT: ${FINANCE_SERVICE_PORT}
       DEBUG: ${DEBUG}
       LOG_LEVEL: ${LOG_LEVEL}
+    env_file:
+      - .env
+    networks:
+      - backend
+    restart: unless-stopped
+
+  user_auth_service:
+    build:
+      context: ./user_auth_service
+    ports:
+      - "${USER_AUTH_SERVICE_PORT:-8007}:${USER_AUTH_SERVICE_PORT:-8007}"
+    environment:
+      SERVICE_NAME: user_auth_service
+      PORT: ${USER_AUTH_SERVICE_PORT:-8007}
+      DATABASE_URL: postgresql+asyncpg://${USER_AUTH_DB_USER:-postgres}:${USER_AUTH_DB_PASSWORD:-postgres}@user-auth-db:5432/${USER_AUTH_DB_NAME:-user_auth_db}
+      JWT_SECRET: ${JWT_SECRET:-change_me_please}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ISSUER: ${JWT_ISSUER:-user_auth_service}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-15}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-30}
+      DEBUG: ${DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL}
+    env_file:
+      - .env
+    depends_on:
+      user-auth-db:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+
+  user-auth-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${USER_AUTH_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${USER_AUTH_DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${USER_AUTH_DB_NAME:-user_auth_db}
+    ports:
+      - "${USER_AUTH_DB_PORT:-5433}:5432"
+    volumes:
+      - user-auth-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${USER_AUTH_DB_USER:-postgres} -d ${USER_AUTH_DB_NAME:-user_auth_db}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     env_file:
       - .env
     networks:
@@ -222,4 +270,5 @@ networks:
 
 volumes:
   market-db-data:
+  user-auth-db-data:
   ollama-data:

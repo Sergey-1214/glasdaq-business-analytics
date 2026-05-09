@@ -8,6 +8,7 @@ SERVICES = {
     "market": os.getenv("MARKET_SERVICE_URL", "http://market_service:8005"),
     "implementation": os.getenv("PRODUCT_IMPLEMENTATION_URL", "http://product_implementation:8008"),
     "parsers": os.getenv("PARSERS_URL", "http://parsers:8006"),
+    "identity": os.getenv("USER_AUTH_SERVICE_URL", "http://user_auth_service:8007"),
 }
 
 PORT = int(os.getenv("PORT", 8000))
