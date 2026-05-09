@@ -22,12 +22,19 @@ app.add_middleware(
 client = httpx.AsyncClient(timeout=30.0)
 
 def check_api_key(request: Request):
-    auth_header = request.headers.get("authorization")
-    if not auth_header:
+    api_key = request.headers.get("x-api-key")
+    if api_key:
+        if api_key != API_KEY:
+            raise HTTPException(status_code=401, detail="Invalid API key")
         return True
-    scheme, _, token = auth_header.partition(" ")
-    if scheme.lower() == "bearer" and token != API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    # Backward-compatible legacy check: Authorization: Bearer <gateway_api_key>
+    auth_header = request.headers.get("authorization")
+    if auth_header:
+        scheme, _, token = auth_header.partition(" ")
+        if scheme.lower() == "bearer" and token == API_KEY:
+            return True
+
     return True
 
 @app.middleware("http")
@@ -53,7 +60,7 @@ async def gateway(service: str, path: str, request: Request):
     
     headers = dict(request.headers)
     headers.pop("host", None)
-    headers.pop("authorization", None)
+    headers.pop("x-api-key", None)
     
     try:
         response = await client.request(

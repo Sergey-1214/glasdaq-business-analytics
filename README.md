@@ -67,7 +67,7 @@ docker-compose up --build
 ### После запуска применить миграции с помощью
 ```bash
 docker-compose exec market_service python -m alembic upgrade head
-```
+docker-compose exec user_auth_service python -m alembic upgrade head```
 
 Фронтенд открывается на `http://localhost:5173`
 
