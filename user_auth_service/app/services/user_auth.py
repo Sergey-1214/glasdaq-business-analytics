@@ -1,4 +1,5 @@
 from uuid import UUID
+from datetime import timezone
 
 import jwt
 from sqlalchemy.exc import IntegrityError
@@ -90,7 +91,10 @@ class UserAuthService:
             raise InvalidRefreshTokenError()
 
         now = utcnow()
-        if stored_token.expires_at < now:
+        expires_at = stored_token.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < now:
             raise RefreshTokenExpiredError()
 
         await self._repo.revoke_refresh_token(stored_token, now)
