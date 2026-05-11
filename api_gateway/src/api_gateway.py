@@ -4,7 +4,7 @@ import httpx
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
-from config import SERVICES, PORT, DEBUG, API_KEY
+from .config import SERVICES, PORT, DEBUG, API_KEY
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("api-gateway")
