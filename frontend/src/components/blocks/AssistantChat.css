@@ -125,6 +125,14 @@
   display: block;
 }
 
+.assistant-text {
+  color: #c8ccd8;
+  white-space: pre-line;
+  word-break: break-word;
+  user-select: text;
+  cursor: text;
+}
+
 .chat__bubble--typing {
   display: flex;
   align-items: center;

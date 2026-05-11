@@ -35,9 +35,8 @@ export default function SortableBlock({ id, className = '', children }) {
       style={style}
       className={`sortable-block ${className}`}
       {...attributes}
-      {...listeners}
     >
-      <Block id={id} title={block?.title ?? id}>
+      <Block id={id} title={block?.title ?? id} dragListeners={listeners}>
         {children ?? BLOCK_CONTENT[id] ?? (
           <div className="block-placeholder">Содержимое: {block?.title}</div>
         )}

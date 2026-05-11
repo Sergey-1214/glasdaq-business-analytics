@@ -1,0 +1,137 @@
+.charts__idea {
+  font-size: 10px;
+  color: #4a4d62;
+  margin-bottom: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.charts {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  height: 100%;
+  box-sizing: border-box;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.charts--empty {
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.charts__empty-icon { color: #3a3d52; }
+
+.charts__empty-text {
+  font-size: 11px;
+  color: #6b6f80;
+  max-width: 180px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.charts__divider {
+  height: 1px;
+  background: #1e2030;
+  flex-shrink: 0;
+}
+
+.chart-section__title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #6b6f80;
+  margin-bottom: 8px;
+}
+
+/* Funnel */
+.funnel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.funnel__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.funnel__label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #e2e2e2;
+  width: 30px;
+  flex-shrink: 0;
+}
+
+.funnel__track {
+  flex: 1;
+  height: 10px;
+  background: #1e2030;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.funnel__bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+
+.funnel__value {
+  font-size: 10px;
+  color: #6b6f80;
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Bars */
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.bars__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bars__label {
+  font-size: 10px;
+  color: #c8ccd8;
+  width: 80px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bars__track {
+  flex: 1;
+  height: 10px;
+  background: #1e2030;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bars__bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+
+.bars__pct {
+  font-size: 10px;
+  color: #6b6f80;
+  width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+}

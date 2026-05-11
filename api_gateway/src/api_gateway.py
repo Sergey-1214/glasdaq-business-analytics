@@ -19,7 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-client = httpx.AsyncClient(timeout=30.0)
+client = httpx.AsyncClient(timeout=httpx.Timeout(connect=10.0, read=180.0, write=10.0, pool=10.0))
 
 def check_api_key(request: Request):
     api_key = request.headers.get("x-api-key")

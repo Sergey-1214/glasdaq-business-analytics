@@ -18,6 +18,41 @@ from src.schemas import (
 from src.services.idea_parser_service import IdeaParserService
 
 
+_CATEGORY_MAP: dict[str, str] = {
+    # Coffee / кофейня
+    "кофейня": "coffee_shop", "кофе": "coffee_shop", "кафе": "coffee_shop",
+    "coffee shop": "coffee_shop", "coffee": "coffee_shop", "cafe": "coffee_shop",
+    "specialty coffee": "coffee_shop", "coffee house": "coffee_shop",
+    # Food delivery / доставка еды
+    "доставка еды": "food_delivery", "доставка": "food_delivery",
+    "доставка здоровой еды": "food_delivery", "доставка питания": "food_delivery",
+    "food delivery": "food_delivery", "meal delivery": "food_delivery",
+    "food services": "food_delivery", "delivery services": "food_delivery",
+    "food & beverage": "food_delivery",
+    # Restaurant
+    "ресторан": "restaurant", "restaurant": "restaurant",
+    "fine dining": "restaurant", "бистро": "restaurant",
+    # Fitness
+    "фитнес": "fitness", "спортзал": "fitness", "gym": "fitness",
+    "fitness": "fitness", "фитнес-клуб": "fitness",
+    # Pharmacy
+    "аптека": "pharmacy", "pharmacy": "pharmacy",
+    # IT
+    "it-сервис": "it_service", "it сервис": "it_service", "it service": "it_service",
+    "приложение": "it_service", "软件": "it_service", "saas": "it_service",
+}
+
+
+def _normalize_category(raw: str) -> str:
+    key = raw.strip().lower()
+    if key in _CATEGORY_MAP:
+        return _CATEGORY_MAP[key]
+    for pattern, mapped in _CATEGORY_MAP.items():
+        if pattern in key or key in pattern:
+            return mapped
+    return "coffee_shop"
+
+
 class AnalysisService:
     DEFAULT_REGION = "Moscow"
     DEFAULT_CATEGORY = "coffee_shop"
@@ -32,9 +67,8 @@ class AnalysisService:
     async def analyze(self, payload: AnalysisRequest) -> AnalysisResponse:
         parsed = await self._parse_idea(payload)
         region = parsed.region or payload.region or self.DEFAULT_REGION
-        category = parsed.business_category or self.DEFAULT_CATEGORY
-        if category == "other":
-            category = self.DEFAULT_CATEGORY
+        raw_category = parsed.business_category or self.DEFAULT_CATEGORY
+        category = _normalize_category(raw_category)
 
         rows = self.repository.list_market_points_with_latest_metrics(region=region, category=category)
         if not rows:

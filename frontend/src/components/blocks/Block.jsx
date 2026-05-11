@@ -3,13 +3,13 @@ import { useDashboardStore } from '../../store/dashboardStore'
 import ErrorBoundary from './ErrorBoundary'
 import './Block.css'
 
-export default function Block({ id, title, children, className = '' }) {
+export default function Block({ id, title, children, className = '', dragListeners }) {
   const { focusedBlockId, setFocus, clearFocus, toggleBlock } = useDashboardStore()
   const isFocused = focusedBlockId === id
 
   return (
     <div className={`block ${className}`}>
-      <div className="block__header">
+      <div className="block__header" {...dragListeners}>
         <span className="block__title">{title}</span>
         <div className="block__actions">
           <button
