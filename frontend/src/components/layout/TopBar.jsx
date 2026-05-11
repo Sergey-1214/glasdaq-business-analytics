@@ -44,7 +44,7 @@ export default function TopBar() {
       <div className="topbar__right">
         <span className="topbar__balance">1337.69 RUB</span>
         {user && (
-          <span className="topbar__username" title={user.email}>{user.name}</span>
+          <span className="topbar__username" title={user.email}>{user.username}</span>
         )}
 
         <div className="topbar__notif-wrapper">

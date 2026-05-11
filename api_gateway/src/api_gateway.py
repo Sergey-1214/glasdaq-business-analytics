@@ -61,6 +61,8 @@ async def gateway(service: str, path: str, request: Request):
     headers = dict(request.headers)
     headers.pop("host", None)
     headers.pop("x-api-key", None)
+    headers.pop("content-length", None)
+    headers.pop("transfer-encoding", None)
     
     try:
         response = await client.request(

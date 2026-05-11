@@ -40,12 +40,12 @@ export default function AuthPage() {
     }
 
     if (tab === 'register') {
-      if (name.trim().length < 2) {
-        setLocalError('Введите имя (минимум 2 символа)')
+      if (name.trim().length < 3) {
+        setLocalError('Введите имя (минимум 3 символа)')
         return
       }
-      if (password.length < 6) {
-        setLocalError('Пароль должен быть не менее 6 символов')
+      if (password.length < 8) {
+        setLocalError('Пароль должен быть не менее 8 символов')
         return
       }
       if (password !== confirm) {
@@ -93,11 +93,11 @@ export default function AuthPage() {
         <form className="auth-form" onSubmit={handleSubmit} noValidate>
           {tab === 'register' && (
             <div className="auth-form__field">
-              <label className="auth-form__label">Имя</label>
+              <label className="auth-form__label">Имя пользователя</label>
               <input
                 className="auth-form__input"
                 type="text"
-                placeholder="Иван Иванов"
+                placeholder="ivan_ivanov"
                 value={name}
                 onChange={(e) => { setName(e.target.value); setLocalError('') }}
                 required

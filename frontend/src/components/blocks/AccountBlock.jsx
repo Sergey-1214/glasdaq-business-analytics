@@ -39,10 +39,10 @@ export default function AccountBlock() {
     <div className={`account ${isFocused ? 'account--focused' : ''}`}>
       <div className="account__top">
         <div className={`account__avatar ${isFocused ? 'account__avatar--lg' : ''}`}>
-          {getInitials(user.name)}
+          {getInitials(user.username)}
         </div>
         <div className="account__info">
-          <div className="account__name">{user.name}</div>
+          <div className="account__name">{user.username}</div>
           <div className="account__role">Аналитик</div>
         </div>
       </div>
@@ -65,7 +65,7 @@ export default function AccountBlock() {
         <div className="account__field">
           <User size={13} className="account__field-icon" />
           <span className="account__field-label">Имя</span>
-          <span className="account__field-value">{user.name}</span>
+          <span className="account__field-value">{user.username}</span>
         </div>
         <div className="account__field">
           <Mail size={13} className="account__field-icon" />
@@ -77,7 +77,7 @@ export default function AccountBlock() {
             <div className="account__field">
               <Calendar size={13} className="account__field-icon" />
               <span className="account__field-label">С нами</span>
-              <span className="account__field-value">{formatDate(user.createdAt)}</span>
+              <span className="account__field-value">{formatDate(user.created_at)}</span>
             </div>
             <div className="account__field">
               <ShieldCheck size={13} className="account__field-icon" />
