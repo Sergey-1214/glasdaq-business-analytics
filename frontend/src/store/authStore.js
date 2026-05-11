@@ -92,6 +92,8 @@ export const useAuthStore = create(
         }
       },
 
+      setTokens: (token, refreshToken) => set({ token, refreshToken }),
+
       logout: () => {
         const { refreshToken } = get()
         set({ user: null, token: null, refreshToken: null, isAuthenticated: false, error: null })
