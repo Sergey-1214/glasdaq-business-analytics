@@ -5,19 +5,20 @@ import './ChartsBlock.css'
 
 const BAR_COLORS = ['#7c6af5', '#5b8af5', '#4aaef5', '#38c4f5', '#2dd4bf', '#34d399']
 
+function fmt(n) {
+  if (!n) return '—'
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`
+  if (n >= 1e6) return `${(n / 1e6).toFixed(0)}M`
+  return String(n)
+}
+
 function TamFunnel({ tam, sam, som }) {
   const max = tam || 1
   const bars = [
-    { label: 'TAM', value: tam, pct: 100, color: '#7c6af5' },
-    { label: 'SAM', value: sam, pct: Math.round((sam / max) * 100), color: '#5b8af5' },
-    { label: 'SOM', value: som, pct: Math.round((som / max) * 100), color: '#4aaef5' },
+    { label: 'TAM', value: tam, pct: 100,                              color: '#7c6af5' },
+    { label: 'SAM', value: sam, pct: Math.round((sam / max) * 100),   color: '#5b8af5' },
+    { label: 'SOM', value: som, pct: Math.round((som / max) * 100),   color: '#4aaef5' },
   ]
-
-  function fmt(n) {
-    if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`
-    if (n >= 1e6) return `${(n / 1e6).toFixed(0)}M`
-    return String(n)
-  }
 
   return (
     <div className="chart-section">
@@ -27,10 +28,7 @@ function TamFunnel({ tam, sam, som }) {
           <div key={label} className="funnel__row">
             <span className="funnel__label">{label}</span>
             <div className="funnel__track">
-              <div
-                className="funnel__bar"
-                style={{ width: `${pct}%`, background: color }}
-              />
+              <div className="funnel__bar" style={{ width: `${pct}%`, background: color }} />
             </div>
             <span className="funnel__value">{fmt(value)}</span>
           </div>
@@ -68,12 +66,33 @@ function CompetitorsChart({ competitors }) {
   )
 }
 
+function ChartsEntry({ entry }) {
+  const { ideaText, analysis } = entry
+
+  if (!analysis) {
+    return (
+      <div className="charts__entry">
+        {ideaText && <div className="charts__idea">{ideaText}</div>}
+        <div className="charts__loading">Анализируется...</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="charts__entry">
+      {ideaText && <div className="charts__idea">{ideaText}</div>}
+      <TamFunnel tam={analysis.tam} sam={analysis.sam} som={analysis.som} />
+      <CompetitorsChart competitors={analysis.competitors} />
+    </div>
+  )
+}
+
 export default function ChartsBlock() {
-  const { analysis, ideaText } = useAnalysisStore()
+  const { entries } = useAnalysisStore()
   const { focusedBlockId } = useDashboardStore()
   const isFocused = focusedBlockId === 'charts'
 
-  if (!analysis) {
+  if (!entries.length) {
     return (
       <div className="charts charts--empty">
         <BarChart2 size={20} className="charts__empty-icon" />
@@ -82,12 +101,22 @@ export default function ChartsBlock() {
     )
   }
 
+  if (!isFocused) {
+    return (
+      <div className="charts">
+        <ChartsEntry entry={entries[entries.length - 1]} />
+      </div>
+    )
+  }
+
   return (
-    <div className={`charts ${isFocused ? 'charts--focused' : ''}`}>
-      {ideaText && <div className="charts__idea">{ideaText}</div>}
-      <TamFunnel tam={analysis.tam} sam={analysis.sam} som={analysis.som} />
-      <div className="charts__divider" />
-      <CompetitorsChart competitors={analysis.competitors} />
+    <div className="charts charts--focused">
+      {[...entries].reverse().map((entry, i) => (
+        <div key={entry.id}>
+          {i > 0 && <div className="charts__divider" />}
+          <ChartsEntry entry={entry} />
+        </div>
+      ))}
     </div>
   )
 }

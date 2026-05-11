@@ -1,12 +1,19 @@
 import { create } from 'zustand'
 
-export const useAnalysisStore = create((set) => ({
-  parsed: null,
-  analysis: null,
-  ideaText: null,
+let entryId = 0
 
-  setParsed: (data) => set({ parsed: data }),
-  setAnalysis: (data) => set({ analysis: data }),
-  setIdeaText: (text) => set({ ideaText: text }),
-  clear: () => set({ parsed: null, analysis: null, ideaText: null }),
+export const useAnalysisStore = create((set) => ({
+  entries: [],
+
+  addEntry: (ideaText, parsed) => {
+    const id = ++entryId
+    set((s) => ({ entries: [...s.entries, { id, ideaText, parsed, analysis: null }] }))
+    return id
+  },
+
+  updateEntryAnalysis: (id, analysis) => set((s) => ({
+    entries: s.entries.map((e) => (e.id === id ? { ...e, analysis } : e)),
+  })),
+
+  clear: () => set({ entries: [] }),
 }))

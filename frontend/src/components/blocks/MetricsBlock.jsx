@@ -25,28 +25,26 @@ function trendColor(trend) {
   return TREND_COLORS.stable
 }
 
-export default function MetricsBlock() {
-  const { analysis, ideaText } = useAnalysisStore()
-  const { focusedBlockId } = useDashboardStore()
-  const isFocused = focusedBlockId === 'metrics'
+function MetricsEntry({ entry, showVerdict = false }) {
+  const { ideaText, analysis } = entry
 
   if (!analysis) {
     return (
-      <div className="metrics metrics--empty">
-        <Info size={20} className="metrics__empty-icon" />
-        <p className="metrics__empty-text">Введите бизнес-идею в ассистенте — здесь появятся метрики рынка</p>
+      <div className="metrics__entry">
+        {ideaText && <div className="metrics__idea">{ideaText}</div>}
+        <div className="metrics__loading">Анализируется...</div>
       </div>
     )
   }
 
   const cards = [
-    { icon: DollarSign, label: 'TAM', hint: 'Весь рынок', value: fmtMoney(analysis.tam), color: '#7c6af5' },
-    { icon: Target, label: 'SAM', hint: 'Доступный', value: fmtMoney(analysis.sam), color: '#5b8af5' },
-    { icon: Crosshair, label: 'SOM', hint: 'Реалистичный', value: fmtMoney(analysis.som), color: '#4aaef5' },
+    { icon: DollarSign, label: 'TAM', hint: 'Весь рынок',    value: fmtMoney(analysis.tam), color: '#7c6af5' },
+    { icon: Target,     label: 'SAM', hint: 'Доступный',     value: fmtMoney(analysis.sam), color: '#5b8af5' },
+    { icon: Crosshair,  label: 'SOM', hint: 'Реалистичный',  value: fmtMoney(analysis.som), color: '#4aaef5' },
   ]
 
   return (
-    <div className={`metrics ${isFocused ? 'metrics--focused' : ''}`}>
+    <div className="metrics__entry">
       {ideaText && <div className="metrics__idea">{ideaText}</div>}
       <div className="metrics__cards">
         {cards.map(({ icon: Icon, label, hint, value, color }) => (
@@ -60,19 +58,49 @@ export default function MetricsBlock() {
           </div>
         ))}
       </div>
-
-      <div className="metrics__divider" />
-
       <div className="metrics__row">
         <TrendingUp size={13} style={{ color: trendColor(analysis.trend), flexShrink: 0 }} />
         <span className="metrics__trend" style={{ color: trendColor(analysis.trend) }}>
           {analysis.trend}
         </span>
       </div>
-
-      {isFocused && analysis.verdict && (
+      {showVerdict && analysis.verdict && (
         <div className="metrics__verdict">{analysis.verdict}</div>
       )}
+    </div>
+  )
+}
+
+export default function MetricsBlock() {
+  const { entries } = useAnalysisStore()
+  const { focusedBlockId } = useDashboardStore()
+  const isFocused = focusedBlockId === 'metrics'
+
+  if (!entries.length) {
+    return (
+      <div className="metrics metrics--empty">
+        <Info size={20} className="metrics__empty-icon" />
+        <p className="metrics__empty-text">Введите бизнес-идею в ассистенте — здесь появятся метрики рынка</p>
+      </div>
+    )
+  }
+
+  if (!isFocused) {
+    return (
+      <div className="metrics">
+        <MetricsEntry entry={entries[entries.length - 1]} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="metrics metrics--focused">
+      {[...entries].reverse().map((entry, i) => (
+        <div key={entry.id}>
+          {i > 0 && <div className="metrics__divider" />}
+          <MetricsEntry entry={entry} showVerdict />
+        </div>
+      ))}
     </div>
   )
 }

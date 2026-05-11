@@ -4,11 +4,15 @@ import { BLOCK_REGISTRY } from '../../store/dashboardStore'
 import Block from './Block'
 import AssistantChat from './AssistantChat'
 import AccountBlock from './AccountBlock'
+import MetricsBlock from './MetricsBlock'
+import ChartsBlock from './ChartsBlock'
 import './SortableBlock.css'
 
 const BLOCK_CONTENT = {
   assistant: <AssistantChat />,
   account: <AccountBlock />,
+  metrics: <MetricsBlock />,
+  charts: <ChartsBlock />,
 }
 
 export default function SortableBlock({ id, className = '', children }) {

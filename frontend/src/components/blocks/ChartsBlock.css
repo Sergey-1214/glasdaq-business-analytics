@@ -1,10 +1,20 @@
+.charts__entry {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .charts__idea {
   font-size: 10px;
   color: #4a4d62;
-  margin-bottom: 10px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.charts__loading {
+  font-size: 11px;
+  color: #6b6f80;
 }
 
 .charts {

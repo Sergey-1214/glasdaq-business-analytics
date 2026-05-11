@@ -170,7 +170,7 @@ function formatAnalysis(parsed, analysis) {
 export default function AssistantChat() {
   const { focusedBlockId, zones } = useDashboardStore()
   const { messages, loading, addMessage, updateMessage, setLoading } = useChatStore()
-  const { setParsed, setAnalysis, setIdeaText } = useAnalysisStore()
+  const { addEntry, updateEntryAnalysis } = useAnalysisStore()
   const isFocused = focusedBlockId === 'assistant'
   const zone = Object.entries(zones).find(([, ids]) => ids.includes('assistant'))?.[0] ?? 'right'
   const fontConfig = useMemo(() => getFontConfig(isFocused, zone), [isFocused, zone])
@@ -214,8 +214,8 @@ export default function AssistantChat() {
         return
       }
 
-      setParsed(parsed)
-      setIdeaText(parsed.normalized_idea || text)
+      const ideaText = parsed.normalized_idea || text
+      const entryId = addEntry(ideaText, parsed)
       const confirmId = addMessage('assistant', formatConfirmation(parsed))
 
       const analRes = await apiFetch('/api/market/api/v1/anal', {
@@ -226,7 +226,7 @@ export default function AssistantChat() {
       if (!analRes.ok) throw new Error('anal_failed')
       const analJson = await analRes.json()
       const analysis = analJson.data
-      setAnalysis(analysis)
+      updateEntryAnalysis(entryId, analysis)
       updateMessage(confirmId, formatAnalysis(parsed, analysis))
     } catch {
       addMessage('assistant', 'Не удалось выполнить анализ. Проверьте подключение к сервису или попробуйте позже.')
