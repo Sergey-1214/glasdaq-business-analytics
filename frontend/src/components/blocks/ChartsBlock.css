@@ -4,12 +4,22 @@
   gap: 10px;
 }
 
+.charts__entry-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .charts__idea {
   font-size: 10px;
+  color: #9aa1bd;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.charts__date {
+  font-size: 10px;
   color: #4a4d62;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .charts__loading {

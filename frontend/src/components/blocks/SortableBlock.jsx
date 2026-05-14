@@ -6,6 +6,7 @@ import AssistantChat from './AssistantChat'
 import AccountBlock from './AccountBlock'
 import MetricsBlock from './MetricsBlock'
 import ChartsBlock from './ChartsBlock'
+import ReportsBlock from './ReportsBlock'
 import './SortableBlock.css'
 
 const BLOCK_CONTENT = {
@@ -13,6 +14,7 @@ const BLOCK_CONTENT = {
   account: <AccountBlock />,
   metrics: <MetricsBlock />,
   charts: <ChartsBlock />,
+  reports: <ReportsBlock />,
 }
 
 export default function SortableBlock({ id, className = '', children }) {

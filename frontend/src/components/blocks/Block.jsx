@@ -20,11 +20,10 @@ export default function Block({ id, title, children, className = '', dragListene
           >
             {isFocused ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
           </button>
-          {id !== 'map' && (
+          {id !== 'map' && !isFocused && (
             <button
               className="block__btn"
               onClick={() => {
-                if (isFocused) clearFocus()
                 toggleBlock(id)
               }}
               title="Закрыть"

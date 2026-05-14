@@ -27,7 +27,7 @@ const MOCK_ANALYSIS = {
 }
 
 function reset() {
-  useAnalysisStore.setState({ parsed: null, analysis: null })
+  useAnalysisStore.setState({ entries: [], parsed: null, analysis: null, preparedReports: [] })
 }
 
 describe('useAnalysisStore', () => {
@@ -54,10 +54,12 @@ describe('useAnalysisStore', () => {
   it('clear resets both fields', () => {
     useAnalysisStore.getState().setParsed(MOCK_PARSED)
     useAnalysisStore.getState().setAnalysis(MOCK_ANALYSIS)
+    useAnalysisStore.setState({ preparedReports: [{ entryId: 1, generatedAt: '2026-05-14T12:00:00.000Z' }] })
     useAnalysisStore.getState().clear()
     const s = useAnalysisStore.getState()
     expect(s.parsed).toBeNull()
     expect(s.analysis).toBeNull()
+    expect(s.preparedReports).toEqual([])
   })
 
   it('parsed and analysis are independent', () => {
@@ -66,5 +68,12 @@ describe('useAnalysisStore', () => {
 
     useAnalysisStore.getState().setAnalysis(MOCK_ANALYSIS)
     expect(useAnalysisStore.getState().parsed).toEqual(MOCK_PARSED)
+  })
+
+  it('prepareReport stores generated report metadata', () => {
+    useAnalysisStore.getState().prepareReport(7)
+    const s = useAnalysisStore.getState()
+    expect(s.preparedReports).toHaveLength(1)
+    expect(s.preparedReports[0].entryId).toBe(7)
   })
 })

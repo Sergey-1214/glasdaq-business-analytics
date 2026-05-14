@@ -6,11 +6,13 @@ export const useAnalysisStore = create((set) => ({
   entries: [],
   parsed: null,
   analysis: null,
+  preparedReports: [],
 
   addEntry: (ideaText, parsed) => {
     const id = ++entryId
+    const createdAt = new Date().toISOString()
     set((s) => ({
-      entries: [...s.entries, { id, ideaText, parsed, analysis: null }],
+      entries: [...s.entries, { id, ideaText, parsed, analysis: null, createdAt }],
       parsed,
       analysis: null,
     }))
@@ -25,5 +27,20 @@ export const useAnalysisStore = create((set) => ({
   setParsed: (parsed) => set({ parsed }),
   setAnalysis: (analysis) => set({ analysis }),
 
-  clear: () => set({ entries: [], parsed: null, analysis: null }),
+  prepareReport: (entryId) => set((state) => {
+    const existing = state.preparedReports.find((report) => report.entryId === entryId)
+    const nextReport = { entryId, generatedAt: new Date().toISOString() }
+
+    return {
+      preparedReports: existing
+        ? state.preparedReports.map((report) => (report.entryId === entryId ? nextReport : report))
+        : [...state.preparedReports, nextReport],
+    }
+  }),
+
+  removePreparedReport: (entryId) => set((state) => ({
+    preparedReports: state.preparedReports.filter((report) => report.entryId !== entryId),
+  })),
+
+  clear: () => set({ entries: [], parsed: null, analysis: null, preparedReports: [] }),
 }))
