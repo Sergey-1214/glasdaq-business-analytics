@@ -1,8 +1,8 @@
-import { useState, useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Home, Plus } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { useDashboardStore, BLOCK_REGISTRY } from '../../store/dashboardStore'
+import { BLOCK_REGISTRY, useDashboardStore } from '../../store/dashboardStore'
 import SortableBlock from '../blocks/SortableBlock'
 import WorkspaceSelector from '../ui/WorkspaceSelector'
 import './LeftSidebar.css'
@@ -10,7 +10,7 @@ import './LeftSidebar.css'
 function FocusSidebar() {
   const { zones, focusedBlockId, setFocus, clearFocus } = useDashboardStore()
   const allActiveIds = Object.values(zones).flat()
-  const allActiveBlocks = BLOCK_REGISTRY.filter((b) => allActiveIds.includes(b.id))
+  const allActiveBlocks = BLOCK_REGISTRY.filter((block) => allActiveIds.includes(block.id))
 
   return (
     <aside className="left-sidebar left-sidebar--narrow">
@@ -19,6 +19,7 @@ function FocusSidebar() {
           className="left-sidebar__icon-btn left-sidebar__icon-btn--home"
           onClick={clearFocus}
           title="Выйти из режима фокуса"
+          aria-label="Выйти из режима фокуса"
         >
           <Home size={16} />
         </button>
@@ -29,6 +30,7 @@ function FocusSidebar() {
             className={`left-sidebar__icon-btn ${block.id === focusedBlockId ? 'left-sidebar__icon-btn--active' : ''}`}
             onClick={() => setFocus(block.id)}
             title={block.title}
+            aria-label={block.title}
           >
             {block.icon}
           </button>
@@ -60,7 +62,10 @@ function NormalSidebar({ isDropTarget }) {
           ref={addBtnRef}
           className="left-sidebar__add-btn"
           title="Добавить блок"
-          onClick={() => setSelectorOpen((v) => !v)}
+          onClick={() => setSelectorOpen((value) => !value)}
+          aria-label="Добавить блок слева"
+          aria-haspopup="dialog"
+          aria-expanded={selectorOpen}
         >
           <Plus size={18} />
         </button>

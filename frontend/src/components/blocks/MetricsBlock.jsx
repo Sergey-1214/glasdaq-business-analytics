@@ -1,3 +1,4 @@
+import { createElement } from 'react'
 import { TrendingUp, DollarSign, Target, Crosshair, Info } from 'lucide-react'
 import { useAnalysisStore } from '../../store/analysisStore'
 import { useDashboardStore } from '../../store/dashboardStore'
@@ -47,10 +48,10 @@ function MetricsEntry({ entry, showVerdict = false }) {
     <div className="metrics__entry">
       {ideaText && <div className="metrics__idea">{ideaText}</div>}
       <div className="metrics__cards">
-        {cards.map(({ icon: Icon, label, hint, value, color }) => (
+        {cards.map(({ icon, label, hint, value, color }) => (
           <div key={label} className="metrics__card">
             <div className="metrics__card-header">
-              <Icon size={13} style={{ color }} />
+              {createElement(icon, { size: 13, style: { color } })}
               <span className="metrics__card-label">{label}</span>
               <span className="metrics__card-hint">{hint}</span>
             </div>
