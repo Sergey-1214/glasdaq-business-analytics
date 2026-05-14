@@ -202,8 +202,6 @@ export default function AssistantChat() {
     el.style.height = `${el.scrollHeight}px`
   }, [input])
 
-  useEffect(() => () => abortRef.current?.abort(), [])
-
   async function send() {
     const text = input.trim()
     if (!text || loading) return
