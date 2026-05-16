@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable'
@@ -32,7 +32,10 @@ export default function BottomRow({ isDropTarget = false }) {
           ref={addBtnRef}
           className="bottom-row__add-btn"
           title="Добавить блок"
-          onClick={() => setSelectorOpen((v) => !v)}
+          onClick={() => setSelectorOpen((value) => !value)}
+          aria-label="Добавить блок снизу"
+          aria-haspopup="dialog"
+          aria-expanded={selectorOpen}
         >
           <Plus size={18} />
         </button>

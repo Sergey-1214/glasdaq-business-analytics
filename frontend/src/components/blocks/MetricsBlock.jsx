@@ -1,6 +1,8 @@
+import { createElement } from 'react'
 import { TrendingUp, DollarSign, Target, Crosshair, Info } from 'lucide-react'
 import { useAnalysisStore } from '../../store/analysisStore'
 import { useDashboardStore } from '../../store/dashboardStore'
+import { buildIdeaTitle, formatIdeaCreatedAt } from '../../utils/ideaPresentation'
 import './MetricsBlock.css'
 
 function fmtMoney(n) {
@@ -19,38 +21,47 @@ const TREND_COLORS = {
 
 function trendColor(trend) {
   if (!trend) return '#6b6f80'
-  const t = trend.toLowerCase()
-  if (t.includes('рост') || t.includes('grow') || t.includes('up')) return TREND_COLORS.growing
-  if (t.includes('спад') || t.includes('declin') || t.includes('down')) return TREND_COLORS.declining
+  const value = trend.toLowerCase()
+  if (value.includes('рост') || value.includes('grow') || value.includes('up')) return TREND_COLORS.growing
+  if (value.includes('спад') || value.includes('declin') || value.includes('down')) return TREND_COLORS.declining
   return TREND_COLORS.stable
 }
 
 function MetricsEntry({ entry, showVerdict = false }) {
-  const { ideaText, analysis } = entry
+  const { analysis, createdAt } = entry
+  const title = buildIdeaTitle(entry)
+  const createdAtLabel = formatIdeaCreatedAt(createdAt)
 
   if (!analysis) {
     return (
       <div className="metrics__entry">
-        {ideaText && <div className="metrics__idea">{ideaText}</div>}
+        <div className="metrics__entry-head">
+          <div className="metrics__idea">{title}</div>
+          {createdAtLabel && <div className="metrics__date">{createdAtLabel}</div>}
+        </div>
         <div className="metrics__loading">Анализируется...</div>
       </div>
     )
   }
 
   const cards = [
-    { icon: DollarSign, label: 'TAM', hint: 'Весь рынок',    value: fmtMoney(analysis.tam), color: '#7c6af5' },
-    { icon: Target,     label: 'SAM', hint: 'Доступный',     value: fmtMoney(analysis.sam), color: '#5b8af5' },
-    { icon: Crosshair,  label: 'SOM', hint: 'Реалистичный',  value: fmtMoney(analysis.som), color: '#4aaef5' },
+    { icon: DollarSign, label: 'TAM', hint: 'Весь рынок', value: fmtMoney(analysis.tam), color: '#7c6af5' },
+    { icon: Target, label: 'SAM', hint: 'Доступный', value: fmtMoney(analysis.sam), color: '#5b8af5' },
+    { icon: Crosshair, label: 'SOM', hint: 'Реалистичный', value: fmtMoney(analysis.som), color: '#4aaef5' },
   ]
 
   return (
     <div className="metrics__entry">
-      {ideaText && <div className="metrics__idea">{ideaText}</div>}
+      <div className="metrics__entry-head">
+        <div className="metrics__idea">{title}</div>
+        {createdAtLabel && <div className="metrics__date">{createdAtLabel}</div>}
+      </div>
+
       <div className="metrics__cards">
-        {cards.map(({ icon: Icon, label, hint, value, color }) => (
+        {cards.map(({ icon, label, hint, value, color }) => (
           <div key={label} className="metrics__card">
             <div className="metrics__card-header">
-              <Icon size={13} style={{ color }} />
+              {createElement(icon, { size: 13, style: { color } })}
               <span className="metrics__card-label">{label}</span>
               <span className="metrics__card-hint">{hint}</span>
             </div>
@@ -58,12 +69,14 @@ function MetricsEntry({ entry, showVerdict = false }) {
           </div>
         ))}
       </div>
+
       <div className="metrics__row">
         <TrendingUp size={13} style={{ color: trendColor(analysis.trend), flexShrink: 0 }} />
         <span className="metrics__trend" style={{ color: trendColor(analysis.trend) }}>
           {analysis.trend}
         </span>
       </div>
+
       {showVerdict && analysis.verdict && (
         <div className="metrics__verdict">{analysis.verdict}</div>
       )}
@@ -80,7 +93,9 @@ export default function MetricsBlock() {
     return (
       <div className="metrics metrics--empty">
         <Info size={20} className="metrics__empty-icon" />
-        <p className="metrics__empty-text">Введите бизнес-идею в ассистенте — здесь появятся метрики рынка</p>
+        <p className="metrics__empty-text">
+          Введите бизнес-идею в ассистенте — здесь появятся метрики рынка
+        </p>
       </div>
     )
   }
@@ -95,9 +110,9 @@ export default function MetricsBlock() {
 
   return (
     <div className="metrics metrics--focused">
-      {[...entries].reverse().map((entry, i) => (
+      {[...entries].reverse().map((entry, index) => (
         <div key={entry.id}>
-          {i > 0 && <div className="metrics__divider" />}
+          {index > 0 && <div className="metrics__divider" />}
           <MetricsEntry entry={entry} showVerdict />
         </div>
       ))}

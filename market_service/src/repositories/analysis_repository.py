@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from src.db.models import MarketPoint, MarketPointMetric
+from src.db.models import IngestionBatch, MarketPoint, MarketPointMetric
 
 
 class AnalysisRepository:
@@ -22,14 +22,17 @@ class AnalysisRepository:
             .subquery()
         )
 
+        normalized_region = region.strip().lower()
+
         query = (
             select(MarketPoint, MarketPointMetric)
             .join(MarketPointMetric, MarketPointMetric.market_point_id == MarketPoint.id)
             .join(latest_metric_ids, latest_metric_ids.c.id == MarketPointMetric.id)
+            .outerjoin(IngestionBatch, IngestionBatch.id == MarketPoint.batch_id)
             .where(MarketPoint.category == category)
         )
 
-        # Current data has region on batches only; keep this parameter in the API contract
-        # and repository signature so filtering can be tightened when regional data matures.
-        _ = region
+        if normalized_region:
+            query = query.where(func.lower(IngestionBatch.region) == normalized_region)
+
         return list(self.db.execute(query).all())

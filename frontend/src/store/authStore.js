@@ -1,39 +1,25 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-
-async function parseResponse(res, fallbackError) {
-  let json
-  try {
-    json = await res.json()
-  } catch {
-    throw new Error(`Ошибка сервера (${res.status})`)
-  }
-  if (!res.ok) {
-    const detail = json.detail
-    if (Array.isArray(detail)) throw new Error(detail[0]?.msg || fallbackError)
-    throw new Error(typeof detail === 'string' ? detail : fallbackError)
-  }
-  return json.data
-}
+import { API_URL, parseApiResponse } from '../api/http'
 
 async function apiLogin(email, password) {
-  const res = await fetch(`${API_URL}/api/identity/auth/login`, {
+  const response = await fetch(`${API_URL}/api/identity/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   })
-  return parseResponse(res, 'Неверный email или пароль')
+
+  return parseApiResponse(response, 'Неверный email или пароль')
 }
 
 async function apiRegister(username, email, password) {
-  const res = await fetch(`${API_URL}/api/identity/auth/register`, {
+  const response = await fetch(`${API_URL}/api/identity/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, email, password }),
   })
-  return parseResponse(res, 'Ошибка регистрации')
+
+  return parseApiResponse(response, 'Ошибка регистрации')
 }
 
 async function apiLogout(refreshToken) {
@@ -44,7 +30,7 @@ async function apiLogout(refreshToken) {
       body: JSON.stringify({ refresh_token: refreshToken }),
     })
   } catch {
-    // ignore network errors on logout
+    // Ignore network errors on logout.
   }
 }
 
@@ -69,9 +55,9 @@ export const useAuthStore = create(
             isAuthenticated: true,
             loading: false,
           })
-        } catch (e) {
-          set({ error: e.message, loading: false })
-          throw e
+        } catch (error) {
+          set({ error: error.message, loading: false })
+          throw error
         }
       },
 
@@ -86,9 +72,9 @@ export const useAuthStore = create(
             isAuthenticated: true,
             loading: false,
           })
-        } catch (e) {
-          set({ error: e.message, loading: false })
-          throw e
+        } catch (error) {
+          set({ error: error.message, loading: false })
+          throw error
         }
       },
 
@@ -96,20 +82,29 @@ export const useAuthStore = create(
 
       logout: () => {
         const { refreshToken } = get()
-        set({ user: null, token: null, refreshToken: null, isAuthenticated: false, error: null })
-        if (refreshToken) apiLogout(refreshToken)
+        set({
+          user: null,
+          token: null,
+          refreshToken: null,
+          isAuthenticated: false,
+          error: null,
+        })
+
+        if (refreshToken) {
+          apiLogout(refreshToken)
+        }
       },
 
       clearError: () => set({ error: null }),
     }),
     {
       name: 'glasdaq-auth',
-      partialize: (s) => ({
-        user: s.user,
-        token: s.token,
-        refreshToken: s.refreshToken,
-        isAuthenticated: s.isAuthenticated,
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        refreshToken: state.refreshToken,
+        isAuthenticated: state.isAuthenticated,
       }),
-    }
-  )
+    },
+  ),
 )

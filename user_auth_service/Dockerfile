@@ -10,6 +10,8 @@ COPY alembic ./alembic
 COPY app ./app
 COPY entrypoint.sh ./entrypoint.sh
 
+RUN sed -i 's/\r$//' ./entrypoint.sh && chmod +x ./entrypoint.sh
+
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
@@ -19,4 +21,4 @@ USER appuser
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8007/health')" || exit 1
 
-CMD ["sh", "./entrypoint.sh"]
+CMD ["./entrypoint.sh"]

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -29,7 +29,10 @@ export default function RightSidebar({ isDropTarget = false }) {
           ref={addBtnRef}
           className="right-sidebar__add-btn"
           title="Добавить блок"
-          onClick={() => setSelectorOpen((v) => !v)}
+          onClick={() => setSelectorOpen((value) => !value)}
+          aria-label="Добавить блок справа"
+          aria-haspopup="dialog"
+          aria-expanded={selectorOpen}
         >
           <Plus size={18} />
         </button>

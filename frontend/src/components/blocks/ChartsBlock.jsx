@@ -1,6 +1,7 @@
 import { BarChart2, Info } from 'lucide-react'
 import { useAnalysisStore } from '../../store/analysisStore'
 import { useDashboardStore } from '../../store/dashboardStore'
+import { buildIdeaTitle, formatIdeaCreatedAt } from '../../utils/ideaPresentation'
 import './ChartsBlock.css'
 
 const BAR_COLORS = ['#7c6af5', '#5b8af5', '#4aaef5', '#38c4f5', '#2dd4bf', '#34d399']
@@ -15,9 +16,9 @@ function fmt(n) {
 function TamFunnel({ tam, sam, som }) {
   const max = tam || 1
   const bars = [
-    { label: 'TAM', value: tam, pct: 100,                              color: '#7c6af5' },
-    { label: 'SAM', value: sam, pct: Math.round((sam / max) * 100),   color: '#5b8af5' },
-    { label: 'SOM', value: som, pct: Math.round((som / max) * 100),   color: '#4aaef5' },
+    { label: 'TAM', value: tam, pct: 100, color: '#7c6af5' },
+    { label: 'SAM', value: sam, pct: Math.round((sam / max) * 100), color: '#5b8af5' },
+    { label: 'SOM', value: som, pct: Math.round((som / max) * 100), color: '#4aaef5' },
   ]
 
   return (
@@ -40,25 +41,25 @@ function TamFunnel({ tam, sam, som }) {
 
 function CompetitorsChart({ competitors }) {
   if (!competitors?.length) return null
-  const max = Math.max(...competitors.map((c) => c.share), 1)
+  const max = Math.max(...competitors.map((item) => item.share), 1)
 
   return (
     <div className="chart-section">
       <div className="chart-section__title">Конкуренты</div>
       <div className="bars">
-        {competitors.map((c, i) => (
-          <div key={c.name} className="bars__row">
-            <span className="bars__label" title={c.name}>{c.name}</span>
+        {competitors.map((item, index) => (
+          <div key={item.name} className="bars__row">
+            <span className="bars__label" title={item.name}>{item.name}</span>
             <div className="bars__track">
               <div
                 className="bars__bar"
                 style={{
-                  width: `${Math.round((c.share / max) * 100)}%`,
-                  background: BAR_COLORS[i % BAR_COLORS.length],
+                  width: `${Math.round((item.share / max) * 100)}%`,
+                  background: BAR_COLORS[index % BAR_COLORS.length],
                 }}
               />
             </div>
-            <span className="bars__pct">{c.share}%</span>
+            <span className="bars__pct">{item.share}%</span>
           </div>
         ))}
       </div>
@@ -67,12 +68,17 @@ function CompetitorsChart({ competitors }) {
 }
 
 function ChartsEntry({ entry }) {
-  const { ideaText, analysis } = entry
+  const { analysis, createdAt } = entry
+  const title = buildIdeaTitle(entry)
+  const createdAtLabel = formatIdeaCreatedAt(createdAt)
 
   if (!analysis) {
     return (
       <div className="charts__entry">
-        {ideaText && <div className="charts__idea">{ideaText}</div>}
+        <div className="charts__entry-head">
+          <div className="charts__idea">{title}</div>
+          {createdAtLabel && <div className="charts__date">{createdAtLabel}</div>}
+        </div>
         <div className="charts__loading">Анализируется...</div>
       </div>
     )
@@ -80,7 +86,10 @@ function ChartsEntry({ entry }) {
 
   return (
     <div className="charts__entry">
-      {ideaText && <div className="charts__idea">{ideaText}</div>}
+      <div className="charts__entry-head">
+        <div className="charts__idea">{title}</div>
+        {createdAtLabel && <div className="charts__date">{createdAtLabel}</div>}
+      </div>
       <TamFunnel tam={analysis.tam} sam={analysis.sam} som={analysis.som} />
       <CompetitorsChart competitors={analysis.competitors} />
     </div>
@@ -96,7 +105,9 @@ export default function ChartsBlock() {
     return (
       <div className="charts charts--empty">
         <BarChart2 size={20} className="charts__empty-icon" />
-        <p className="charts__empty-text">Введите бизнес-идею в ассистенте — здесь появятся графики</p>
+        <p className="charts__empty-text">
+          Введите бизнес-идею в ассистенте — здесь появятся графики
+        </p>
       </div>
     )
   }
@@ -111,9 +122,9 @@ export default function ChartsBlock() {
 
   return (
     <div className="charts charts--focused">
-      {[...entries].reverse().map((entry, i) => (
+      {[...entries].reverse().map((entry, index) => (
         <div key={entry.id}>
-          {i > 0 && <div className="charts__divider" />}
+          {index > 0 && <div className="charts__divider" />}
           <ChartsEntry entry={entry} />
         </div>
       ))}

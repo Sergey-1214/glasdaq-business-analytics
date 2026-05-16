@@ -49,3 +49,9 @@
   border-radius: 8px;
   transition: background 0.15s, outline-color 0.15s;
 }
+
+@media (max-width: 960px) {
+  .right-sidebar {
+    display: none;
+  }
+}

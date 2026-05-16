@@ -63,3 +63,36 @@
   color: #e2e2e2;
   border-color: #555;
 }
+
+@media (max-width: 1200px) {
+  .bottom-row {
+    height: 220px;
+  }
+
+  .bottom-row__item {
+    width: 280px;
+  }
+}
+
+@media (max-width: 640px) {
+  .bottom-row-wrap {
+    flex-direction: column;
+  }
+
+  .bottom-row {
+    height: 200px;
+    padding: 6px;
+    gap: 6px;
+  }
+
+  .bottom-row__item {
+    width: 240px;
+  }
+
+  .bottom-row__add-wrapper {
+    width: 100%;
+    height: 48px;
+    border-left: none;
+    border-top: 1px solid #1e2030;
+  }
+}

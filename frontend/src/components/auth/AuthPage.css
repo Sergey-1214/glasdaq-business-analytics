@@ -1,5 +1,6 @@
 .auth-page {
-  height: 100vh;
+  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -192,4 +193,19 @@
 .auth-form__submit:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .auth-page {
+    padding: 16px;
+  }
+
+  .auth-card {
+    padding: 28px 20px 20px;
+    max-width: 100%;
+  }
+
+  .auth-card__logo img {
+    height: 96px;
+  }
 }

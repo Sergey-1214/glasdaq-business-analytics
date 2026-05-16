@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { createElement, useState } from 'react'
 import { Mail, User, Calendar, ShieldCheck, BarChart2, FileText, Clock, Pencil, X, Check, Loader2 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { useDashboardStore } from '../../store/dashboardStore'
@@ -109,7 +109,7 @@ function EditForm({ user, onSave, onCancel }) {
 }
 
 export default function AccountBlock() {
-  const { user, setTokens } = useAuthStore()
+  const { user } = useAuthStore()
   const { focusedBlockId } = useDashboardStore()
   const isFocused = focusedBlockId === 'account'
   const [editing, setEditing] = useState(false)
@@ -140,9 +140,9 @@ export default function AccountBlock() {
 
       {isFocused && (
         <div className="account__stats">
-          {MOCK_STATS.map(({ icon: Icon, label, value }) => (
+          {MOCK_STATS.map(({ icon, label, value }) => (
             <div key={label} className="account__stat">
-              <Icon size={16} className="account__stat-icon" />
+              {createElement(icon, { size: 16, className: 'account__stat-icon' })}
               <div className="account__stat-value">{value}</div>
               <div className="account__stat-label">{label}</div>
             </div>

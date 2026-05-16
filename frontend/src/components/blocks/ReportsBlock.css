@@ -1,0 +1,243 @@
+.reports {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.reports--empty {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.reports__empty-icon {
+  color: #3a3d52;
+}
+
+.reports__empty-text {
+  margin: 0;
+  max-width: 220px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #6b6f80;
+}
+
+.reports__panel {
+  background: #0d0e13;
+  border: 1px solid #1e2030;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reports__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reports__header--secondary {
+  align-items: center;
+}
+
+.reports__title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #e2e2e2;
+}
+
+.reports__hint {
+  margin-top: 4px;
+  font-size: 10px;
+  color: #6b6f80;
+  line-height: 1.4;
+}
+
+.reports__count {
+  min-width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #2a2b3d;
+  background: #13141c;
+  color: #c8ccd8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.reports__prepare-btn,
+.reports__action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid #2a2b3d;
+  background: #1c1d28;
+  color: #e2e2e2;
+  font-size: 11px;
+  font-weight: 600;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.reports__prepare-btn:hover:not(:disabled),
+.reports__action-btn:hover {
+  background: #23243a;
+  border-color: #3a3b55;
+}
+
+.reports__prepare-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.reports__action-btn--ghost {
+  background: transparent;
+  color: #8b90a8;
+}
+
+.reports__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reports__label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #6b6f80;
+}
+
+.reports__select {
+  height: 36px;
+  background: #13141c;
+  border: 1px solid #2a2b3d;
+  border-radius: 8px;
+  padding: 0 10px;
+  color: #e2e2e2;
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.reports__summary {
+  border: 1px solid #1e2030;
+  border-radius: 8px;
+  background: #13141c;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reports__summary-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e2e2e2;
+  line-height: 1.45;
+}
+
+.reports__summary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-size: 10px;
+  color: #9aa1bd;
+}
+
+.reports__status {
+  font-size: 10px;
+  color: #7cc69a;
+}
+
+.reports__status--muted {
+  color: #6b6f80;
+}
+
+.reports__empty-prepared {
+  min-height: 56px;
+  border: 1px dashed #2a2b3d;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #6b6f80;
+  font-size: 11px;
+}
+
+.reports__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reports__item {
+  border: 1px solid #1e2030;
+  border-radius: 8px;
+  background: #13141c;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.reports__item-main {
+  min-width: 0;
+}
+
+.reports__item-title {
+  font-size: 12px;
+  color: #e2e2e2;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.reports__item-date {
+  margin-top: 6px;
+  font-size: 10px;
+  color: #6b6f80;
+  line-height: 1.4;
+}
+
+.reports__item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.reports__action-btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .reports__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .reports__item-actions {
+    justify-content: stretch;
+  }
+
+  .reports__action-btn,
+  .reports__prepare-btn {
+    flex: 1;
+  }
+}

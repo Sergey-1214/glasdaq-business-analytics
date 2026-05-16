@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from src.db.session import get_db
 from src.schemas import ErrorResponse, IngestionRequest, IngestionResponse
-from src.services import IngestionService
+from src.services.ingestion_service import IngestionService
 
 
 router = APIRouter(prefix="/api/v1/ingest", tags=["ingestion"])

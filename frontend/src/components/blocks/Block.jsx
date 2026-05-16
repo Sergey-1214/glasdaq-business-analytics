@@ -16,17 +16,18 @@ export default function Block({ id, title, children, className = '', dragListene
             className="block__btn"
             onClick={() => (isFocused ? clearFocus() : setFocus(id))}
             title={isFocused ? 'Свернуть' : 'Развернуть'}
+            aria-label={isFocused ? 'Свернуть блок' : 'Развернуть блок'}
           >
             {isFocused ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
           </button>
-          {id !== 'map' && (
+          {id !== 'map' && !isFocused && (
             <button
               className="block__btn"
               onClick={() => {
-                if (isFocused) clearFocus()
                 toggleBlock(id)
               }}
               title="Закрыть"
+              aria-label="Закрыть блок"
             >
               <X size={13} />
             </button>

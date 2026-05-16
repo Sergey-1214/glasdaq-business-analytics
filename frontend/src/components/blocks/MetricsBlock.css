@@ -4,12 +4,22 @@
   gap: 10px;
 }
 
+.metrics__entry-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .metrics__idea {
   font-size: 10px;
+  color: #9aa1bd;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.metrics__date {
+  font-size: 10px;
   color: #4a4d62;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .metrics__loading {
