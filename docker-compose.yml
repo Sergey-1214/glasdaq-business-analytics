@@ -179,10 +179,17 @@ services:
       IDEA_PARSER_KEEP_ALIVE: ${IDEA_PARSER_KEEP_ALIVE:-30m}
       IDEA_PARSER_CACHE_TTL_SECONDS: ${IDEA_PARSER_CACHE_TTL_SECONDS:-900}
       IDEA_PARSER_CACHE_MAX_SIZE: ${IDEA_PARSER_CACHE_MAX_SIZE:-512}
+      JWT_SECRET: ${JWT_SECRET:-change_me_please}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ISSUER: ${JWT_ISSUER:-user_auth_service}
+      REPORTS_STORAGE_DIR: ${REPORTS_STORAGE_DIR:-/tmp/reports}
+      REPORTS_PUBLIC_BASE_PATH: ${REPORTS_PUBLIC_BASE_PATH:-/reports/files}
       DEBUG: ${DEBUG}
       LOG_LEVEL: ${LOG_LEVEL}
     env_file:
       - .env
+    volumes:
+      - market-reports-data:/tmp/reports
     depends_on:
       market-db:
         condition: service_healthy
@@ -277,3 +284,4 @@ volumes:
   market-db-data:
   user-auth-db-data:
   ollama-data:
+  market-reports-data:
