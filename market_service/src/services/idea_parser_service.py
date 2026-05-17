@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import logging
 import os
@@ -56,26 +56,29 @@ Analyse the startup idea and return ONLY a flat JSON object. Do NOT nest objects
 
 Required keys (all at top level):
 - language: string (ru / en / other)
-- normalized_idea: string — one short sentence in Russian describing the business
+- normalized_idea: string, one short sentence in Russian describing the business
 - business_category: string in Russian (e.g. "Кофейня", "Доставка еды", "IT-сервис")
 - subcategory: string in Russian or null
 - business_model: string in Russian or null
 - offering_type: string in Russian or null
+- query_type: string (e.g. "new_business", "location_search", "market_check") or null
 - price_segment: "high" | "mid" | "low" | null
 - target_audience: array of Russian strings (or [])
 - region: string or null
-- location_preferences: array of Russian strings describing preferred location (or []) — e.g. ["рядом с метро", "центр города"]
+- district: string (district/area/metro reference in Russian) or null
+- location_preferences: array of Russian strings describing preferred location (or [])
 - planned_average_check: number (average receipt in rubles) or null
 - max_rent_m2: number (max rent per m2 in rubles) or null
 - min_pedestrian_traffic: integer (min daily foot traffic) or null
 - min_metro_passenger_flow: integer (min daily metro passengers) or null
 - preferred_distance_to_metro_m: integer (max distance to metro in meters) or null
+- constraints: array of Russian strings with explicit restrictions from user (or [])
 - customer_problem: string in Russian or null
 - keywords: array of Russian strings (max 8, or [])
-- confidence: float 0..1 — how confident you are this is a real business idea
+- confidence: float 0..1, how confident you are this is a real business idea
 
 Rules:
-- ALL string values must be in Russian (except language and price_segment).
+- ALL string values must be in Russian (except language, query_type and price_segment).
 - Use null for unknown numeric fields. Only fill numeric fields if explicitly stated in the idea.
 - location_preferences is a FLAT LIST of strings, NOT an object.
 
