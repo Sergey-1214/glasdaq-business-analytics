@@ -14,6 +14,9 @@ class StubRepository:
         self.calls.append((region, category))
         return self.rows
 
+    def find_metro_station_coordinates(self, region: str, station_hint: str):
+        return None
+
 
 class StubParser:
     def __init__(self, parsed_data: IdeaParseResponseData):
@@ -39,8 +42,10 @@ def make_row(
     average_rent_m2: float,
     average_check: float,
     available_spaces: int,
+    latitude: float = 55.75,
+    longitude: float = 37.62,
 ):
-    point = SimpleNamespace(name=name, rating=rating)
+    point = SimpleNamespace(name=name, rating=rating, latitude=latitude, longitude=longitude)
     metric = SimpleNamespace(
         pedestrian_traffic_estimate=pedestrian,
         metro_passenger_flow=metro_flow,

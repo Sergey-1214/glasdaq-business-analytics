@@ -124,3 +124,42 @@ class MarketPointMetric(Base):
     market_point: Mapped[MarketPoint] = relationship(back_populates="metrics")
     batch: Mapped[IngestionBatch | None] = relationship(back_populates="point_metrics")
     nearest_metro_station: Mapped[MetroStation | None] = relationship(back_populates="point_metrics")
+
+
+class Idea(Base):
+    __tablename__ = "ideas"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    idea_text: Mapped[str] = mapped_column(Text, nullable=False)
+    normalized_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    parsed_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    analysis_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    reports: Mapped[list["Report"]] = relationship(back_populates="idea", cascade="all, delete-orphan")
+
+
+class Report(Base):
+    __tablename__ = "reports"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    idea_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("ideas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    format: Mapped[str] = mapped_column(String(50), nullable=False)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    file_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    report_payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    idea: Mapped[Idea] = relationship(back_populates="reports")
