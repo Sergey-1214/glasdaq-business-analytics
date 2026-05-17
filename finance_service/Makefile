@@ -1,7 +1,7 @@
 SERVICE_NAME := $(notdir $(CURDIR))
 DOCKER_IMAGE := $(SERVICE_NAME)-service
 DOCKERFILE_PATH := ./Dockerfile
-PORT ?= 8004
+PORT ?= 8006
 
 install: 
 	pip install -r requirements.txt
