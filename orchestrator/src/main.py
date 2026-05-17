@@ -16,8 +16,15 @@ from typing import Dict, Any, Optional
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("orchestrator")
 
-app = FastAPI(title="Orchestrator", version="1.0.0")
+app = FastAPI(
+    title="Orchestrator",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
+)
 
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -34,9 +41,6 @@ TEAM_SERVICE_URL = os.getenv("TEAM_SERVICE_URL", "http://team_service:8003")
 IMPLEMENTATION_URL = os.getenv("PRODUCT_IMPLEMENTATION_URL", "http://product_implementation:8008")
 USER_AUTH_SERVICE_URL = os.getenv("USER_AUTH_SERVICE_URL", "http://user_auth_service:8007")
 
-# HTTP клиент (глобальный, чтобы избежать "unbound")
-client = httpx.AsyncClient(timeout=httpx.Timeout(90.0))
-
 # Хранилище задач
 tasks: Dict[str, Dict] = {}
 
@@ -49,6 +53,7 @@ async def root():
     return {
         "service": "Orchestrator",
         "version": "1.0.0",
+        "port": 8003,
         "services": {
             "product": PRODUCT_SERVICE_URL,
             "market": MARKET_SERVICE_URL,
@@ -61,7 +66,8 @@ async def root():
             "POST /api/v1/analyze - запуск анализа",
             "GET /api/v1/status/{task_id} - статус задачи",
             "GET /api/v1/result/{task_id} - результат анализа",
-            "GET /health - проверка здоровья"
+            "GET /health - проверка здоровья",
+            "GET /docs - Swagger документация"
         ]
     }
 
@@ -69,7 +75,7 @@ async def root():
 @app.get("/health")
 async def health():
     """Проверка здоровья"""
-    return {"status": "healthy", "service": "orchestrator"}
+    return {"status": "healthy", "service": "orchestrator", "port": 8003}
 
 
 @app.post("/api/v1/analyze")
@@ -225,7 +231,7 @@ async def run_full_analysis(task_id: str, request: Dict[str, Any]):
         logger.info(f"Task {task_id} completed successfully")
         
     except Exception as e:
-        logger.error(f"Task {task_id} failed: {e}")
+        logger.error(f"Task {task_id} failed: {e}", exc_info=True)
         task["status"] = "failed"
         task["error"] = str(e)
         task["completed_at"] = datetime.now()
@@ -233,124 +239,129 @@ async def run_full_analysis(task_id: str, request: Dict[str, Any]):
 
 async def call_product_service(request: Dict[str, Any]) -> Dict[str, Any]:
     """Вызов Product Service"""
-    try:
-        payload = {
-            "idea": request.get("idea", ""),
-            "region": request.get("region", "russia"),
-            "industry": request.get("industry", "other")
-        }
-        
-        response = await client.post(
-            f"{PRODUCT_SERVICE_URL}/api/v1/analyze",
-            json=payload
-        )
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return {"success": False, "error": f"HTTP {response.status_code}"}
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            payload = {
+                "idea": request.get("idea", ""),
+                "region": request.get("region", "russia"),
+                "industry": request.get("industry", "other")
+            }
             
-    except httpx.TimeoutException:
-        logger.error("Product service timeout")
-        return {"success": False, "error": "Timeout"}
-    except Exception as e:
-        logger.error(f"Product service error: {e}")
-        return {"success": False, "error": str(e)}
+            response = await client.post(
+                f"{PRODUCT_SERVICE_URL}/api/v1/analyze",
+                json=payload
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {"success": False, "error": f"HTTP {response.status_code}"}
+                
+        except httpx.TimeoutException:
+            logger.error("Product service timeout")
+            return {"success": False, "error": "Timeout"}
+        except Exception as e:
+            logger.error(f"Product service error: {e}")
+            return {"success": False, "error": str(e)}
 
 
 async def call_market_service(request: Dict[str, Any]) -> Dict[str, Any]:
     """Вызов Market Service"""
-    try:
-        payload = {
-            "idea": request.get("idea", ""),
-            "region": request.get("region", "russia")
-        }
-        
-        response = await client.post(
-            f"{MARKET_SERVICE_URL}/api/v1/analyze",
-            json=payload
-        )
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return {"success": False, "error": f"HTTP {response.status_code}"}
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            payload = {
+                "idea": request.get("idea", ""),
+                "region": request.get("region", "russia")
+            }
             
-    except httpx.TimeoutException:
-        logger.error("Market service timeout")
-        return {"success": False, "error": "Timeout"}
-    except Exception as e:
-        logger.error(f"Market service error: {e}")
-        return {"success": False, "error": str(e)}
+            response = await client.post(
+                f"{MARKET_SERVICE_URL}/api/v1/analyze",
+                json=payload
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {"success": False, "error": f"HTTP {response.status_code}"}
+                
+        except httpx.TimeoutException:
+            logger.error("Market service timeout")
+            return {"success": False, "error": "Timeout"}
+        except Exception as e:
+            logger.error(f"Market service error: {e}")
+            return {"success": False, "error": str(e)}
 
 
 async def call_team_service(request: Dict[str, Any]) -> Dict[str, Any]:
     """Вызов Team Service"""
-    try:
-        payload = {
-            "idea": request.get("idea", ""),
-            "industry": request.get("industry", "other"),
-            "complexity": request.get("complexity", 5)
-        }
-        
-        response = await client.post(
-            f"{TEAM_SERVICE_URL}/api/v1/analyze",
-            json=payload
-        )
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return {"success": False, "error": f"HTTP {response.status_code}"}
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            payload = {
+                "idea": request.get("idea", ""),
+                "industry": request.get("industry", "other"),
+                "complexity": request.get("complexity", 5)
+            }
             
-    except httpx.TimeoutException:
-        logger.error("Team service timeout")
-        return {"success": False, "error": "Timeout"}
-    except Exception as e:
-        logger.error(f"Team service error: {e}")
-        return {"success": False, "error": str(e)}
+            response = await client.post(
+                f"{TEAM_SERVICE_URL}/api/v1/analyze",
+                json=payload
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {"success": False, "error": f"HTTP {response.status_code}"}
+                
+        except httpx.TimeoutException:
+            logger.error("Team service timeout")
+            return {"success": False, "error": "Timeout"}
+        except Exception as e:
+            logger.error(f"Team service error: {e}")
+            return {"success": False, "error": str(e)}
 
 
 async def call_finance_service(request: Dict[str, Any]) -> Dict[str, Any]:
     """Вызов Finance Service"""
-    try:
-        response = await client.post(
-            f"{FINANCE_SERVICE_URL}/api/v1/analyze",
-            json=request
-        )
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return {"success": False, "error": f"HTTP {response.status_code}"}
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            response = await client.post(
+                f"{FINANCE_SERVICE_URL}/api/v1/analyze",
+                json=request
+            )
             
-    except httpx.TimeoutException:
-        logger.error("Finance service timeout")
-        return {"success": False, "error": "Timeout"}
-    except Exception as e:
-        logger.error(f"Finance service error: {e}")
-        return {"success": False, "error": str(e)}
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {"success": False, "error": f"HTTP {response.status_code}"}
+                
+        except httpx.TimeoutException:
+            logger.error("Finance service timeout")
+            return {"success": False, "error": "Timeout"}
+        except Exception as e:
+            logger.error(f"Finance service error: {e}")
+            return {"success": False, "error": str(e)}
 
 
 async def call_implementation_service(request: Dict[str, Any]) -> Dict[str, Any]:
     """Вызов Implementation Service"""
-    try:
-        response = await client.post(
-            f"{IMPLEMENTATION_URL}/api/v1/analyze",
-            json=request
-        )
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return {"success": False, "error": f"HTTP {response.status_code}"}
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            response = await client.post(
+                f"{IMPLEMENTATION_URL}/api/v1/analyze",
+                json=request
+            )
             
-    except httpx.TimeoutException:
-        logger.error("Implementation service timeout")
-        return {"success": False, "error": "Timeout"}
-    except Exception as e:
-        logger.error(f"Implementation service error: {e}")
-        return {"success": False, "error": str(e)}
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {"success": False, "error": f"HTTP {response.status_code}"}
+                
+        except httpx.TimeoutException:
+            logger.error("Implementation service timeout")
+            return {"success": False, "error": "Timeout"}
+        except Exception as e:
+            logger.error(f"Implementation service error: {e}")
+            return {"success": False, "error": str(e)}
 
 
 def generate_unified_report(results: Dict[str, Any]) -> Dict[str, Any]:
