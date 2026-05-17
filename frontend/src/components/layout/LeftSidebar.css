@@ -99,3 +99,18 @@
   background: #2a2b3d;
   margin: 4px 0;
 }
+
+@media (max-width: 960px) {
+  .left-sidebar {
+    width: 72px;
+  }
+
+  .left-sidebar__blocks {
+    padding: 6px;
+  }
+
+  .left-sidebar__add-btn {
+    width: 48px;
+    margin: 6px auto;
+  }
+}

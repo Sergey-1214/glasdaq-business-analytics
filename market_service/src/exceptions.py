@@ -30,3 +30,18 @@ class ExternalServiceError(AppError):
 class IdeaParsingError(AppError):
     status_code = 422
     error_code = "idea_parsing_error"
+
+
+class AuthError(AppError):
+    status_code = 401
+    error_code = "auth_error"
+
+
+class ForbiddenError(AppError):
+    status_code = 403
+    error_code = "forbidden"
+
+
+class NotFoundError(AppError):
+    status_code = 404
+    error_code = "not_found"

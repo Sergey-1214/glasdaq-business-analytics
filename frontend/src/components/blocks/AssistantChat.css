@@ -125,6 +125,14 @@
   display: block;
 }
 
+.assistant-text {
+  color: #c8ccd8;
+  white-space: pre-line;
+  word-break: break-word;
+  user-select: text;
+  cursor: text;
+}
+
 .chat__bubble--typing {
   display: flex;
   align-items: center;
@@ -240,4 +248,39 @@
 .chat__send:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+@media (max-width: 960px) {
+  .chat--right {
+    height: 100%;
+  }
+
+  .chat--focused .chat__messages {
+    padding: 12px 0;
+  }
+
+  .chat--focused .chat__input-area {
+    padding: 10px 12px;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .chat__messages {
+    padding: 8px 6px;
+    gap: 6px;
+  }
+
+  .chat__bubble {
+    max-width: 94%;
+  }
+
+  .chat--focused .chat__row {
+    max-width: 100%;
+  }
+
+  .chat--focused .chat__bubble--user,
+  .chat--focused .chat__input {
+    font-size: 14px;
+  }
 }

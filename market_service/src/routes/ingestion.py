@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from src.core import CurrentUser, get_current_user
 from src.db.session import get_db
 from src.schemas import ErrorResponse, IngestionRequest, IngestionResponse
-from src.services import IngestionService
+from src.services.ingestion_service import IngestionService
 
 
 router = APIRouter(prefix="/api/v1/ingest", tags=["ingestion"])
@@ -18,6 +19,10 @@ router = APIRouter(prefix="/api/v1/ingest", tags=["ingestion"])
         500: {"model": ErrorResponse},
     },
 )
-def ingest_coffee_shops(payload: IngestionRequest, db: Session = Depends(get_db)):
+def ingest_coffee_shops(
+    payload: IngestionRequest,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
     service = IngestionService(db)
     return service.ingest_coffee_shops(payload)

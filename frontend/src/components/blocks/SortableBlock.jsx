@@ -4,11 +4,17 @@ import { BLOCK_REGISTRY } from '../../store/dashboardStore'
 import Block from './Block'
 import AssistantChat from './AssistantChat'
 import AccountBlock from './AccountBlock'
+import MetricsBlock from './MetricsBlock'
+import ChartsBlock from './ChartsBlock'
+import ReportsBlock from './ReportsBlock'
 import './SortableBlock.css'
 
 const BLOCK_CONTENT = {
   assistant: <AssistantChat />,
   account: <AccountBlock />,
+  metrics: <MetricsBlock />,
+  charts: <ChartsBlock />,
+  reports: <ReportsBlock />,
 }
 
 export default function SortableBlock({ id, className = '', children }) {
@@ -35,9 +41,8 @@ export default function SortableBlock({ id, className = '', children }) {
       style={style}
       className={`sortable-block ${className}`}
       {...attributes}
-      {...listeners}
     >
-      <Block id={id} title={block?.title ?? id}>
+      <Block id={id} title={block?.title ?? id} dragListeners={listeners}>
         {children ?? BLOCK_CONTENT[id] ?? (
           <div className="block-placeholder">Содержимое: {block?.title}</div>
         )}

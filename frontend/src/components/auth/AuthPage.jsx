@@ -17,8 +17,8 @@ export default function AuthPage() {
   const { login, register, loading, error, clearError } = useAuthStore()
   const navigate = useNavigate()
 
-  function switchTab(t) {
-    setTab(t)
+  function switchTab(nextTab) {
+    setTab(nextTab)
     setLocalError('')
     clearError()
     setName('')
@@ -40,12 +40,12 @@ export default function AuthPage() {
     }
 
     if (tab === 'register') {
-      if (name.trim().length < 2) {
-        setLocalError('Введите имя (минимум 2 символа)')
+      if (name.trim().length < 3) {
+        setLocalError('Введите имя (минимум 3 символа)')
         return
       }
-      if (password.length < 6) {
-        setLocalError('Пароль должен быть не менее 6 символов')
+      if (password.length < 8) {
+        setLocalError('Пароль должен быть не менее 8 символов')
         return
       }
       if (password !== confirm) {
@@ -62,11 +62,13 @@ export default function AuthPage() {
       }
       navigate('/', { replace: true })
     } catch {
+      // Store error is rendered below the form.
     }
   }
 
   const displayError = localError || error
-  const inputClass = (base) => `${base} ${displayError ? base + '--error' : ''}`
+  const inputClass = (base) => `${base} ${displayError ? `${base}--error` : ''}`
+  const errorId = displayError ? 'auth-form-error' : undefined
 
   return (
     <div className="auth-page">
@@ -79,12 +81,14 @@ export default function AuthPage() {
           <button
             className={`auth-tabs__btn ${tab === 'login' ? 'auth-tabs__btn--active' : ''}`}
             onClick={() => switchTab('login')}
+            type="button"
           >
             Войти
           </button>
           <button
             className={`auth-tabs__btn ${tab === 'register' ? 'auth-tabs__btn--active' : ''}`}
             onClick={() => switchTab('register')}
+            type="button"
           >
             Регистрация
           </button>
@@ -93,49 +97,70 @@ export default function AuthPage() {
         <form className="auth-form" onSubmit={handleSubmit} noValidate>
           {tab === 'register' && (
             <div className="auth-form__field">
-              <label className="auth-form__label">Имя</label>
+              <label className="auth-form__label" htmlFor="auth-name">Имя пользователя</label>
               <input
-                className="auth-form__input"
+                id="auth-name"
+                className={inputClass('auth-form__input')}
                 type="text"
-                placeholder="Иван Иванов"
+                placeholder="ivan_ivanov"
                 value={name}
-                onChange={(e) => { setName(e.target.value); setLocalError('') }}
+                onChange={(e) => {
+                  setName(e.target.value)
+                  setLocalError('')
+                }}
                 required
                 autoComplete="name"
+                aria-invalid={Boolean(displayError)}
+                aria-describedby={errorId}
               />
             </div>
           )}
 
           <div className="auth-form__field">
-            <label className="auth-form__label">Email</label>
+            <label className="auth-form__label" htmlFor="auth-email">Email</label>
             <input
+              id="auth-email"
               className={inputClass('auth-form__input')}
               type="email"
               placeholder="you@example.com"
               value={email}
-              onChange={(e) => { setEmail(e.target.value); setLocalError(''); clearError() }}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                setLocalError('')
+                clearError()
+              }}
               required
               autoComplete="email"
+              aria-invalid={Boolean(displayError)}
+              aria-describedby={errorId}
             />
           </div>
 
           <div className="auth-form__field">
-            <label className="auth-form__label">Пароль</label>
+            <label className="auth-form__label" htmlFor="auth-password">Пароль</label>
             <div className="auth-form__input-wrap">
               <input
+                id="auth-password"
                 className={inputClass('auth-form__input')}
                 type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 value={password}
-                onChange={(e) => { setPassword(e.target.value); setLocalError(''); clearError() }}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  setLocalError('')
+                  clearError()
+                }}
                 required
                 autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
+                aria-invalid={Boolean(displayError)}
+                aria-describedby={errorId}
               />
               <button
                 type="button"
                 className="auth-form__eye"
-                onClick={() => setShowPassword((v) => !v)}
-                tabIndex={-1}
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                aria-pressed={showPassword}
               >
                 {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
@@ -144,22 +169,29 @@ export default function AuthPage() {
 
           {tab === 'register' && (
             <div className="auth-form__field">
-              <label className="auth-form__label">Повторите пароль</label>
+              <label className="auth-form__label" htmlFor="auth-confirm">Повторите пароль</label>
               <div className="auth-form__input-wrap">
                 <input
+                  id="auth-confirm"
                   className={inputClass('auth-form__input')}
                   type={showConfirm ? 'text' : 'password'}
                   placeholder="••••••••"
                   value={confirm}
-                  onChange={(e) => { setConfirm(e.target.value); setLocalError('') }}
+                  onChange={(e) => {
+                    setConfirm(e.target.value)
+                    setLocalError('')
+                  }}
                   required
                   autoComplete="new-password"
+                  aria-invalid={Boolean(displayError)}
+                  aria-describedby={errorId}
                 />
                 <button
                   type="button"
                   className="auth-form__eye"
-                  onClick={() => setShowConfirm((v) => !v)}
-                  tabIndex={-1}
+                  onClick={() => setShowConfirm((value) => !value)}
+                  aria-label={showConfirm ? 'Скрыть подтверждение пароля' : 'Показать подтверждение пароля'}
+                  aria-pressed={showConfirm}
                 >
                   {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
@@ -168,7 +200,9 @@ export default function AuthPage() {
           )}
 
           {displayError && (
-            <div className="auth-form__error">{displayError}</div>
+            <div id="auth-form-error" className="auth-form__error" role="alert">
+              {displayError}
+            </div>
           )}
 
           <button className="auth-form__submit" type="submit" disabled={loading}>

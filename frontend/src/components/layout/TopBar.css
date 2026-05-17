@@ -97,3 +97,55 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+@media (max-width: 960px) {
+  .topbar {
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .topbar__logo {
+    width: auto;
+    min-width: 72px;
+    margin-left: 0;
+    padding-left: 0;
+  }
+
+  .topbar__logo-img {
+    height: 52px;
+  }
+
+  .topbar__center {
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  .topbar__workspace-btn {
+    padding: 6px 12px;
+    max-width: 100%;
+  }
+
+  .topbar__right {
+    margin-left: auto;
+    min-width: 0;
+  }
+
+  .topbar__balance {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    padding: 0 10px;
+  }
+
+  .topbar__workspace-btn {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .topbar__username {
+    display: none;
+  }
+}

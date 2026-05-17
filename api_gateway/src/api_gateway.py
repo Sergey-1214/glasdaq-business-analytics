@@ -4,7 +4,7 @@ import httpx
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
-from config import SERVICES, PORT, DEBUG, API_KEY
+from .config import SERVICES, PORT, DEBUG, API_KEY
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("api-gateway")
@@ -19,7 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-client = httpx.AsyncClient(timeout=30.0)
+client = httpx.AsyncClient(timeout=httpx.Timeout(connect=10.0, read=180.0, write=10.0, pool=10.0))
 
 def check_api_key(request: Request):
     api_key = request.headers.get("x-api-key")
@@ -61,6 +61,8 @@ async def gateway(service: str, path: str, request: Request):
     headers = dict(request.headers)
     headers.pop("host", None)
     headers.pop("x-api-key", None)
+    headers.pop("content-length", None)
+    headers.pop("transfer-encoding", None)
     
     try:
         response = await client.request(

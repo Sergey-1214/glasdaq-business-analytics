@@ -1,9 +1,9 @@
-import { useState, useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell, LogOut } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
-import WorkspaceSelector from '../ui/WorkspaceSelector'
 import NotificationPanel from '../ui/NotificationPanel'
+import WorkspaceSelector from '../ui/WorkspaceSelector'
 import './TopBar.css'
 
 export default function TopBar() {
@@ -29,7 +29,9 @@ export default function TopBar() {
         <button
           ref={workspaceBtnRef}
           className="topbar__workspace-btn"
-          onClick={() => setSelectorOpen((v) => !v)}
+          onClick={() => setSelectorOpen((value) => !value)}
+          aria-haspopup="dialog"
+          aria-expanded={selectorOpen}
         >
           Рабочая область ▾
         </button>
@@ -44,7 +46,7 @@ export default function TopBar() {
       <div className="topbar__right">
         <span className="topbar__balance">1337.69 RUB</span>
         {user && (
-          <span className="topbar__username" title={user.email}>{user.name}</span>
+          <span className="topbar__username" title={user.email}>{user.username}</span>
         )}
 
         <div className="topbar__notif-wrapper">
@@ -52,7 +54,10 @@ export default function TopBar() {
             ref={bellBtnRef}
             className={`topbar__icon-btn ${notifOpen ? 'topbar__icon-btn--active' : ''}`}
             title="Уведомления"
-            onClick={() => setNotifOpen((v) => !v)}
+            onClick={() => setNotifOpen((value) => !value)}
+            aria-label="Уведомления"
+            aria-haspopup="dialog"
+            aria-expanded={notifOpen}
           >
             <Bell size={15} />
           </button>
@@ -64,7 +69,7 @@ export default function TopBar() {
           )}
         </div>
 
-        <button className="topbar__icon-btn" title="Выйти" onClick={handleLogout}>
+        <button className="topbar__icon-btn" title="Выйти" onClick={handleLogout} aria-label="Выйти">
           <LogOut size={15} />
         </button>
       </div>

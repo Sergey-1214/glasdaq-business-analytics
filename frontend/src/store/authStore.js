@@ -1,26 +1,45 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { API_URL, parseApiResponse } from '../api/http'
 
 async function apiLogin(email, password) {
-  return {
-    user: { id: 1, email, name: email.split('@')[0], createdAt: '2025-01-15', plan: 'Pro' },
-    access_token: 'mock-token-' + Date.now(),
-  }
+  const response = await fetch(`${API_URL}/api/identity/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+
+  return parseApiResponse(response, 'Неверный email или пароль')
 }
 
-async function apiRegister(name, email, password) {
-  const today = new Date().toISOString().slice(0, 10)
-  return {
-    user: { id: Date.now(), email, name, createdAt: today, plan: 'Basic' },
-    access_token: 'mock-token-' + Date.now(),
+async function apiRegister(username, email, password) {
+  const response = await fetch(`${API_URL}/api/identity/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, email, password }),
+  })
+
+  return parseApiResponse(response, 'Ошибка регистрации')
+}
+
+async function apiLogout(refreshToken) {
+  try {
+    await fetch(`${API_URL}/api/identity/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+  } catch {
+    // Ignore network errors on logout.
   }
 }
 
 export const useAuthStore = create(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       token: null,
+      refreshToken: null,
       isAuthenticated: false,
       error: null,
       loading: false,
@@ -32,12 +51,13 @@ export const useAuthStore = create(
           set({
             user: data.user,
             token: data.access_token,
+            refreshToken: data.refresh_token,
             isAuthenticated: true,
             loading: false,
           })
-        } catch (e) {
-          set({ error: e.message, loading: false })
-          throw e
+        } catch (error) {
+          set({ error: error.message, loading: false })
+          throw error
         }
       },
 
@@ -48,22 +68,43 @@ export const useAuthStore = create(
           set({
             user: data.user,
             token: data.access_token,
+            refreshToken: data.refresh_token,
             isAuthenticated: true,
             loading: false,
           })
-        } catch (e) {
-          set({ error: e.message, loading: false })
-          throw e
+        } catch (error) {
+          set({ error: error.message, loading: false })
+          throw error
         }
       },
 
-      logout: () => set({ user: null, token: null, isAuthenticated: false, error: null }),
+      setTokens: (token, refreshToken) => set({ token, refreshToken }),
+
+      logout: () => {
+        const { refreshToken } = get()
+        set({
+          user: null,
+          token: null,
+          refreshToken: null,
+          isAuthenticated: false,
+          error: null,
+        })
+
+        if (refreshToken) {
+          apiLogout(refreshToken)
+        }
+      },
 
       clearError: () => set({ error: null }),
     }),
     {
       name: 'glasdaq-auth',
-      partialize: (s) => ({ user: s.user, token: s.token, isAuthenticated: s.isAuthenticated }),
-    }
-  )
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        refreshToken: state.refreshToken,
+        isAuthenticated: state.isAuthenticated,
+      }),
+    },
+  ),
 )

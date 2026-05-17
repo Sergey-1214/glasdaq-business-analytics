@@ -16,11 +16,17 @@ import BottomRow from './components/layout/BottomRow'
 import Block from './components/blocks/Block'
 import AssistantChat from './components/blocks/AssistantChat'
 import AccountBlock from './components/blocks/AccountBlock'
+import MetricsBlock from './components/blocks/MetricsBlock'
+import ChartsBlock from './components/blocks/ChartsBlock'
+import ReportsBlock from './components/blocks/ReportsBlock'
 import './App.css'
 
 const BLOCK_CONTENT = {
   assistant: <AssistantChat />,
   account: <AccountBlock />,
+  metrics: <MetricsBlock />,
+  charts: <ChartsBlock />,
+  reports: <ReportsBlock />,
 }
 
 const DROPPABLE_ZONES = ['left', 'right', 'bottom']

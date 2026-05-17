@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import logging
 import math
+import re
 from statistics import median
 
 from sqlalchemy.orm import Session
 
-from src.repositories import AnalysisRepository
 from src.exceptions import AppError
+from src.repositories import AnalysisRepository
 from src.schemas import (
     AnalysisRequest,
     AnalysisResponse,
@@ -17,6 +19,126 @@ from src.schemas import (
 )
 from src.services.idea_parser_service import IdeaParserService
 
+logger = logging.getLogger(__name__)
+
+
+_CATEGORY_MAP: dict[str, str] = {
+    "кофейня": "coffee_shop",
+    "кофе": "coffee_shop",
+    "кафе": "coffee_shop",
+    "coffee shop": "coffee_shop",
+    "coffee": "coffee_shop",
+    "cafe": "coffee_shop",
+    "specialty coffee": "coffee_shop",
+    "coffee house": "coffee_shop",
+    "доставка еды": "food_delivery",
+    "доставка": "food_delivery",
+    "доставка здоровой еды": "food_delivery",
+    "доставка питания": "food_delivery",
+    "food delivery": "food_delivery",
+    "meal delivery": "food_delivery",
+    "food services": "food_delivery",
+    "delivery services": "food_delivery",
+    "food & beverage": "food_delivery",
+    "ресторан": "restaurant",
+    "restaurant": "restaurant",
+    "fine dining": "restaurant",
+    "бистро": "restaurant",
+    "фитнес": "fitness",
+    "спортзал": "fitness",
+    "gym": "fitness",
+    "fitness": "fitness",
+    "фитнес-клуб": "fitness",
+    "аптека": "pharmacy",
+    "pharmacy": "pharmacy",
+    "it-сервис": "it_service",
+    "it сервис": "it_service",
+    "it service": "it_service",
+    "приложение": "it_service",
+    "saas": "it_service",
+}
+
+_METRO_ALIASES = {
+    "near_metro",
+    "рядом с метро",
+    "около метро",
+    "у метро",
+    "возле метро",
+    "near metro",
+}
+
+_CENTER_ALIASES = {
+    "центр",
+    "в центре",
+    "центр москвы",
+    "центр города",
+    "downtown",
+    "city center",
+}
+
+_OUTSKIRTS_ALIASES = {
+    "окраина",
+    "окраине",
+    "спальный район",
+    "периферия",
+    "на западе",
+    "запад",
+    "западная",
+    "западной",
+    "west",
+    "outskirts",
+    "suburb",
+    "suburban",
+}
+
+_TAKEAWAY_ALIASES = {
+    "takeaway",
+    "to go",
+    "на вынос",
+    "с собой",
+}
+
+_OFFICE_ALIASES = {
+    "office workers",
+    "офисные работники",
+    "офисные сотрудники",
+    "офисные",
+    "для офисов",
+    "business district",
+}
+
+_COMMUTER_ALIASES = {
+    "commuters",
+    "пассажиры метро",
+    "пассажиры",
+    "коммьютеры",
+}
+
+_PREMIUM_ALIASES = {
+    "premium",
+    "премиум",
+    "высокий сегмент",
+    "дорогой",
+}
+
+_BUDGET_ALIASES = {
+    "budget",
+    "low cost",
+    "дешев",
+    "эконом",
+    "доступн",
+}
+
+
+def _normalize_category(raw: str) -> str:
+    key = raw.strip().lower()
+    if key in _CATEGORY_MAP:
+        return _CATEGORY_MAP[key]
+    for pattern, mapped in _CATEGORY_MAP.items():
+        if pattern in key or key in pattern:
+            return mapped
+    return "coffee_shop"
+
 
 class AnalysisService:
     DEFAULT_REGION = "Moscow"
@@ -24,6 +146,7 @@ class AnalysisService:
     MIN_DAILY_TRANSACTIONS = 40
     MAX_DAILY_TRANSACTIONS = 220
     DAYS_PER_YEAR = 365
+    DEFAULT_GEO_RADIUS_M = 2000
 
     def __init__(self, db: Session) -> None:
         self.repository = AnalysisRepository(db)
@@ -32,12 +155,16 @@ class AnalysisService:
     async def analyze(self, payload: AnalysisRequest) -> AnalysisResponse:
         parsed = await self._parse_idea(payload)
         region = parsed.region or payload.region or self.DEFAULT_REGION
-        category = parsed.business_category or self.DEFAULT_CATEGORY
-        if category == "other":
-            category = self.DEFAULT_CATEGORY
+        raw_category = parsed.business_category or self.DEFAULT_CATEGORY
+        category = _normalize_category(raw_category)
 
         rows = self.repository.list_market_points_with_latest_metrics(region=region, category=category)
         if not rows:
+            logger.warning(
+                "No market points found for region='%s' and category='%s'. Check ingestion data and region normalization.",
+                region,
+                category,
+            )
             return AnalysisResponse(
                 data=AnalysisResponseData(
                     tam=0,
@@ -51,14 +178,23 @@ class AnalysisService:
 
         records = [self._build_record(point, metric) for point, metric in rows]
         self._fill_missing_values(records)
-        self._calculate_scores(records, parsed)
+        idea_profile = self._build_idea_profile(payload, parsed)
+        location_hints = self._extract_location_hints(payload, parsed)
+        localized_records = self._filter_by_geo_radius(records, region, parsed, idea_profile, location_hints)
+        if not localized_records:
+            logger.warning("Geo-radius filtering returned no points; fallback to text/metro filtering was used.")
+            localized_records = self._filter_by_location_hints(records, parsed, idea_profile, location_hints)
+        scoring_scope = localized_records or records
+        if not localized_records:
+            logger.warning("Location filtering returned no points; fallback to all points in region/category was used.")
+        self._calculate_scores(scoring_scope, parsed, idea_profile)
 
-        suitable_records = self._select_suitable_records(records, parsed)
+        suitable_records = self._select_suitable_records(scoring_scope, parsed, idea_profile)
         if not suitable_records:
-            suitable_records = self._top_records(records, "opportunity_score", 0.3)
+            suitable_records = self._top_records(scoring_scope, "opportunity_score", 0.2 if idea_profile["prefers_center"] else 0.3)
 
-        tam = self._calculate_tam(records, parsed)
-        sam = self._calculate_sam(suitable_records, parsed)
+        tam = self._calculate_tam(scoring_scope, parsed, idea_profile)
+        sam = self._calculate_sam(suitable_records, parsed, idea_profile)
         som = self._calculate_som(sam, suitable_records)
 
         return AnalysisResponse(
@@ -67,7 +203,7 @@ class AnalysisService:
                 sam=sam,
                 som=som,
                 competitors=self._calculate_competitors(suitable_records),
-                trend=self._calculate_trend(records),
+                trend=self._calculate_trend(scoring_scope),
                 verdict=self._calculate_verdict(suitable_records),
             )
         )
@@ -89,21 +225,61 @@ class AnalysisService:
                 price_segment=None,
                 target_audience=[],
                 region=payload.region or self.DEFAULT_REGION,
+                district=None,
+                query_type=None,
                 location_preferences=[],
                 planned_average_check=None,
                 max_rent_m2=None,
                 min_pedestrian_traffic=None,
                 min_metro_passenger_flow=None,
                 preferred_distance_to_metro_m=None,
+                constraints=[],
                 customer_problem=None,
                 keywords=[],
                 confidence=0.0,
                 parser_source="fallback",
             )
 
+    def _build_idea_profile(self, payload: AnalysisRequest, parsed: IdeaParseResponseData) -> dict[str, bool]:
+        raw_text = (payload.idea or "").lower()
+        parsed_text_parts = [
+            parsed.normalized_idea or "",
+            parsed.business_category or "",
+            parsed.subcategory or "",
+            parsed.business_model or "",
+            parsed.offering_type or "",
+            parsed.query_type or "",
+            parsed.customer_problem or "",
+            parsed.district or "",
+            " ".join(parsed.location_preferences or []),
+            " ".join(parsed.target_audience or []),
+            " ".join(parsed.constraints or []),
+            " ".join(parsed.keywords or []),
+            parsed.price_segment or "",
+        ]
+        parsed_text = " ".join(part.lower() for part in parsed_text_parts if part)
+
+        raw_prefers_center = self._contains_any(raw_text, _CENTER_ALIASES)
+        raw_prefers_outskirts = self._contains_any(raw_text, _OUTSKIRTS_ALIASES)
+        parsed_prefers_center = self._contains_any(parsed_text, _CENTER_ALIASES)
+        parsed_prefers_outskirts = self._contains_any(parsed_text, _OUTSKIRTS_ALIASES)
+
+        return {
+            "prefers_metro": self._contains_any(raw_text, _METRO_ALIASES) or self._contains_any(parsed_text, _METRO_ALIASES),
+            "prefers_center": raw_prefers_center or (parsed_prefers_center and not raw_prefers_outskirts),
+            "prefers_outskirts": raw_prefers_outskirts or (parsed_prefers_outskirts and not raw_prefers_center),
+            "takeaway": self._contains_any(raw_text, _TAKEAWAY_ALIASES) or self._contains_any(parsed_text, _TAKEAWAY_ALIASES),
+            "office_audience": self._contains_any(raw_text, _OFFICE_ALIASES) or self._contains_any(parsed_text, _OFFICE_ALIASES),
+            "commuter_audience": self._contains_any(raw_text, _COMMUTER_ALIASES) or self._contains_any(parsed_text, _COMMUTER_ALIASES),
+            "premium": parsed.price_segment == "high" or self._contains_any(raw_text, _PREMIUM_ALIASES) or self._contains_any(parsed_text, _PREMIUM_ALIASES),
+            "budget": parsed.price_segment == "low" or self._contains_any(raw_text, _BUDGET_ALIASES) or self._contains_any(parsed_text, _BUDGET_ALIASES),
+        }
+
     def _build_record(self, point, metric) -> dict:
         return {
             "name": point.name,
+            "latitude": self._to_float(point.latitude),
+            "longitude": self._to_float(point.longitude),
             "rating": self._to_float(point.rating),
             "pedestrian_traffic_estimate": self._to_float(metric.pedestrian_traffic_estimate),
             "metro_passenger_flow": self._to_float(metric.metro_passenger_flow),
@@ -117,6 +293,7 @@ class AnalysisService:
             "average_rent_m2": self._to_float(metric.average_rent_m2),
             "average_check": self._to_float(metric.average_check),
             "available_commercial_spaces": self._to_float(metric.available_commercial_spaces),
+            "nearest_metro_station": getattr(getattr(metric, "nearest_metro_station", None), "station_name", None),
         }
 
     def _fill_missing_values(self, records: list[dict]) -> None:
@@ -143,7 +320,127 @@ class AnalysisService:
                 if record[field] is None:
                     record[field] = fallback
 
-    def _calculate_scores(self, records: list[dict], parsed: IdeaParseResponseData) -> None:
+    def _extract_location_hints(
+        self,
+        payload: AnalysisRequest,
+        parsed: IdeaParseResponseData,
+    ) -> list[str]:
+        hints = []
+        if parsed.district:
+            hints.append(parsed.district)
+        hints.extend(parsed.location_preferences or [])
+        hints.extend(parsed.keywords or [])
+        hints.append(payload.idea or "")
+        return [self._normalize_text(h) for h in hints if h]
+
+    def _filter_by_location_hints(
+        self,
+        records: list[dict],
+        parsed: IdeaParseResponseData,
+        idea_profile: dict[str, bool],
+        location_hints: list[str],
+    ) -> list[dict]:
+        if not location_hints and not parsed.preferred_distance_to_metro_m and not idea_profile["prefers_metro"]:
+            return []
+
+        metro_distance_limit = parsed.preferred_distance_to_metro_m
+        if metro_distance_limit is None and idea_profile["prefers_metro"]:
+            metro_distance_limit = 700
+
+        matched = []
+        for record in records:
+            if metro_distance_limit is not None and record["distance_to_metro"] > metro_distance_limit:
+                continue
+
+            name_blob = " ".join(
+                [
+                    self._normalize_text(str(record.get("name") or "")),
+                    self._normalize_text(str(record.get("nearest_metro_station") or "")),
+                ]
+            )
+            if location_hints:
+                tokens = [token for hint in location_hints for token in hint.split() if len(token) >= 4]
+                if tokens and not any(token in name_blob for token in tokens):
+                    continue
+            matched.append(record)
+
+        if matched:
+            return matched
+
+        # Fallback: if exact place token matching failed, still narrow by metro proximity.
+        if metro_distance_limit is not None:
+            return [record for record in records if record["distance_to_metro"] <= metro_distance_limit]
+        return []
+
+    def _filter_by_geo_radius(
+        self,
+        records: list[dict],
+        region: str,
+        parsed: IdeaParseResponseData,
+        idea_profile: dict[str, bool],
+        location_hints: list[str],
+    ) -> list[dict]:
+        anchor = self._resolve_anchor_point(region, parsed, location_hints)
+        if anchor is None:
+            return []
+
+        radius_m = self._resolve_geo_radius(parsed, idea_profile)
+        anchor_lat, anchor_lon = anchor
+        filtered = []
+        for record in records:
+            lat = record.get("latitude")
+            lon = record.get("longitude")
+            if lat is None or lon is None:
+                continue
+            distance = self._haversine_m(anchor_lat, anchor_lon, lat, lon)
+            if distance <= radius_m:
+                filtered.append(record)
+        return filtered
+
+    def _resolve_anchor_point(
+        self,
+        region: str,
+        parsed: IdeaParseResponseData,
+        location_hints: list[str],
+    ) -> tuple[float, float] | None:
+        station_candidates = []
+        if parsed.district:
+            station_candidates.append(parsed.district)
+        station_candidates.extend(parsed.location_preferences or [])
+        station_candidates.extend(parsed.keywords or [])
+        station_candidates.extend(location_hints)
+
+        for candidate in station_candidates:
+            normalized = self._normalize_text(candidate)
+            for token in normalized.split():
+                if len(token) < 4:
+                    continue
+                coords = self.repository.find_metro_station_coordinates(region=region, station_hint=token)
+                if coords is not None:
+                    return coords
+        return None
+
+    def _resolve_geo_radius(
+        self,
+        parsed: IdeaParseResponseData,
+        idea_profile: dict[str, bool],
+    ) -> int:
+        if parsed.preferred_distance_to_metro_m is not None:
+            return max(500, int(parsed.preferred_distance_to_metro_m) * 2)
+        if idea_profile["prefers_metro"]:
+            return 1200
+        if idea_profile["prefers_center"]:
+            return 1800
+        if idea_profile["prefers_outskirts"]:
+            return 3000
+        return self.DEFAULT_GEO_RADIUS_M
+
+    def _calculate_scores(
+        self,
+        records: list[dict],
+        parsed: IdeaParseResponseData,
+        idea_profile: dict[str, bool],
+    ) -> None:
         fields = [
             "pedestrian_traffic_estimate",
             "metro_passenger_flow",
@@ -157,45 +454,77 @@ class AnalysisService:
             "average_rent_m2",
             "available_commercial_spaces",
             "rating",
+            "average_check",
         ]
         normalized = {field: self._normalize(records, field) for field in fields}
-        prefers_metro = "near_metro" in (parsed.location_preferences or [])
 
         for index, record in enumerate(records):
-            if prefers_metro:
-                demand_score = (
-                    0.25 * normalized["pedestrian_traffic_estimate"][index]
-                    + 0.30 * normalized["metro_passenger_flow"][index]
-                    + 0.15 * normalized["population_density"][index]
-                    + 0.15 * normalized["median_income"][index]
-                    + 0.15 * normalized["office_density"][index]
-                )
-                feasibility_score = (
-                    0.35 * self._invert(normalized["distance_to_metro"][index])
-                    + 0.35 * self._invert(normalized["average_rent_m2"][index])
-                    + 0.30 * normalized["available_commercial_spaces"][index]
-                )
-            else:
-                demand_score = (
-                    0.30 * normalized["pedestrian_traffic_estimate"][index]
-                    + 0.20 * normalized["metro_passenger_flow"][index]
-                    + 0.20 * normalized["population_density"][index]
-                    + 0.15 * normalized["median_income"][index]
-                    + 0.15 * normalized["office_density"][index]
-                )
-                feasibility_score = (
-                    0.20 * self._invert(normalized["distance_to_metro"][index])
-                    + 0.45 * self._invert(normalized["average_rent_m2"][index])
-                    + 0.35 * normalized["available_commercial_spaces"][index]
-                )
+            metro_component = normalized["metro_passenger_flow"][index]
+            pedestrian_component = normalized["pedestrian_traffic_estimate"][index]
+            income_component = normalized["median_income"][index]
+            office_component = normalized["office_density"][index]
+            density_component = normalized["population_density"][index]
+            rent_component = self._invert(normalized["average_rent_m2"][index])
+            distance_component = self._invert(normalized["distance_to_metro"][index])
+            spaces_component = normalized["available_commercial_spaces"][index]
+            check_component = normalized["average_check"][index]
+
+            demand_score = (
+                0.26 * pedestrian_component
+                + 0.18 * metro_component
+                + 0.18 * density_component
+                + 0.18 * income_component
+                + 0.20 * office_component
+            )
+
+            feasibility_score = (
+                0.34 * distance_component
+                + 0.36 * rent_component
+                + 0.30 * spaces_component
+            )
 
             competition_score = (
                 0.50 * normalized["cafes_300m"][index]
                 + 0.35 * normalized["cafes_1km"][index]
                 + 0.15 * normalized["average_competitor_rating"][index]
             )
+
+            if idea_profile["prefers_metro"]:
+                demand_score += 0.12 * metro_component
+                feasibility_score += 0.10 * distance_component
+
+            if idea_profile["prefers_center"]:
+                demand_score += 0.08 * metro_component + 0.08 * office_component + 0.06 * income_component
+                feasibility_score -= 0.08 * normalized["average_rent_m2"][index]
+
+            if idea_profile["prefers_outskirts"]:
+                demand_score -= 0.04 * office_component
+                feasibility_score += 0.14 * rent_component + 0.06 * spaces_component
+                competition_score -= 0.06 * normalized["cafes_300m"][index]
+
+            if idea_profile["office_audience"]:
+                demand_score += 0.10 * office_component
+
+            if idea_profile["commuter_audience"]:
+                demand_score += 0.10 * metro_component
+
+            if idea_profile["takeaway"]:
+                demand_score += 0.08 * pedestrian_component
+                feasibility_score += 0.06 * spaces_component
+
+            if idea_profile["premium"]:
+                demand_score += 0.08 * income_component + 0.06 * check_component
+                competition_score += 0.04 * normalized["average_competitor_rating"][index]
+
+            if idea_profile["budget"]:
+                feasibility_score += 0.10 * rent_component
+                demand_score += 0.04 * density_component
+
+            # Keep average check impact moderate for all scenarios, not only premium.
+            demand_score += 0.04 * check_component
+
             opportunity_score = self._clamp(
-                0.50 * demand_score + 0.30 * feasibility_score - 0.20 * competition_score
+                0.52 * demand_score + 0.30 * feasibility_score - 0.22 * competition_score
             )
 
             record["demand_score"] = self._clamp(demand_score)
@@ -203,35 +532,56 @@ class AnalysisService:
             record["feasibility_score"] = self._clamp(feasibility_score)
             record["opportunity_score"] = opportunity_score
             record["rating_norm"] = normalized["rating"][index]
+            record["check_fit_score"] = self._check_fit_score(
+                record_check=record["average_check"],
+                planned_check=parsed.planned_average_check,
+            )
 
     def _select_suitable_records(
         self,
         records: list[dict],
         parsed: IdeaParseResponseData,
+        idea_profile: dict[str, bool],
     ) -> list[dict]:
         suitable = records
 
-        if "near_metro" in (parsed.location_preferences or []):
-            distance_limit = min(self._percentile(records, "distance_to_metro", 0.5), 1000)
+        if idea_profile["prefers_metro"]:
+            distance_limit = min(self._percentile(records, "distance_to_metro", 0.45), 1000)
             if parsed.preferred_distance_to_metro_m is not None:
                 distance_limit = min(distance_limit, parsed.preferred_distance_to_metro_m)
             suitable = [record for record in suitable if record["distance_to_metro"] <= distance_limit]
 
-        if parsed.preferred_distance_to_metro_m is not None and "near_metro" not in (parsed.location_preferences or []):
+        if parsed.preferred_distance_to_metro_m is not None and not idea_profile["prefers_metro"]:
             suitable = [
-                record
-                for record in suitable
+                record for record in suitable
                 if record["distance_to_metro"] <= parsed.preferred_distance_to_metro_m
             ]
 
-        if parsed.subcategory == "takeaway":
-            traffic_limit = self._percentile(records, "pedestrian_traffic_estimate", 0.5)
-            rent_limit = self._percentile(records, "average_rent_m2", 0.75)
+        if idea_profile["takeaway"] or (parsed.subcategory or "").lower() in _TAKEAWAY_ALIASES:
+            traffic_limit = self._percentile(records, "pedestrian_traffic_estimate", 0.6)
+            rent_limit = self._percentile(records, "average_rent_m2", 0.7)
             suitable = [
-                record
-                for record in suitable
+                record for record in suitable
                 if record["pedestrian_traffic_estimate"] >= traffic_limit
                 and record["average_rent_m2"] <= rent_limit
+            ]
+
+        if idea_profile["prefers_center"]:
+            metro_limit = self._percentile(records, "metro_passenger_flow", 0.65)
+            office_limit = self._percentile(records, "office_density", 0.6)
+            suitable = [
+                record for record in suitable
+                if record["metro_passenger_flow"] >= metro_limit
+                and record["office_density"] >= office_limit
+            ]
+
+        if idea_profile["prefers_outskirts"]:
+            rent_limit = self._percentile(records, "average_rent_m2", 0.4)
+            density_limit = self._percentile(records, "population_density", 0.45)
+            suitable = [
+                record for record in suitable
+                if record["average_rent_m2"] <= rent_limit
+                and record["population_density"] <= density_limit
             ]
 
         if parsed.max_rent_m2 is not None:
@@ -239,33 +589,59 @@ class AnalysisService:
 
         if parsed.min_pedestrian_traffic is not None:
             suitable = [
-                record
-                for record in suitable
+                record for record in suitable
                 if record["pedestrian_traffic_estimate"] >= parsed.min_pedestrian_traffic
             ]
 
         if parsed.min_metro_passenger_flow is not None:
             suitable = [
-                record
-                for record in suitable
+                record for record in suitable
                 if record["metro_passenger_flow"] >= parsed.min_metro_passenger_flow
             ]
 
-        if "office workers" in (parsed.target_audience or []):
-            office_limit = self._percentile(records, "office_density", 0.5)
+        if idea_profile["office_audience"]:
+            office_limit = self._percentile(records, "office_density", 0.55)
             suitable = [record for record in suitable if record["office_density"] >= office_limit]
 
-        if "commuters" in (parsed.target_audience or []):
-            flow_limit = self._percentile(records, "metro_passenger_flow", 0.5)
+        if idea_profile["commuter_audience"]:
+            flow_limit = self._percentile(records, "metro_passenger_flow", 0.55)
             suitable = [record for record in suitable if record["metro_passenger_flow"] >= flow_limit]
+
+        if idea_profile["premium"]:
+            income_limit = self._percentile(records, "median_income", 0.65)
+            suitable = [record for record in suitable if record["median_income"] >= income_limit]
+
+        if idea_profile["budget"]:
+            rent_limit = self._percentile(records, "average_rent_m2", 0.45)
+            suitable = [record for record in suitable if record["average_rent_m2"] <= rent_limit]
 
         return suitable
 
-    def _calculate_tam(self, records: list[dict], parsed: IdeaParseResponseData) -> int:
-        return round(sum(self._market_value(record, parsed) for record in records))
+    def _calculate_tam(
+        self,
+        records: list[dict],
+        parsed: IdeaParseResponseData,
+        idea_profile: dict[str, bool],
+    ) -> int:
+        multiplier = 1.0
+        if idea_profile["prefers_center"]:
+            multiplier = 1.08
+        elif idea_profile["prefers_outskirts"]:
+            multiplier = 0.90
+        return round(sum(self._market_value(record, parsed) for record in records) * multiplier)
 
-    def _calculate_sam(self, records: list[dict], parsed: IdeaParseResponseData) -> int:
-        return round(sum(self._market_value(record, parsed) for record in records))
+    def _calculate_sam(
+        self,
+        records: list[dict],
+        parsed: IdeaParseResponseData,
+        idea_profile: dict[str, bool],
+    ) -> int:
+        multiplier = 1.0
+        if idea_profile["premium"]:
+            multiplier *= 1.06
+        if idea_profile["budget"]:
+            multiplier *= 0.94
+        return round(sum(self._market_value(record, parsed) for record in records) * multiplier)
 
     def _calculate_som(self, sam: int, records: list[dict]) -> int:
         avg_opportunity = self._average(records, "opportunity_score")
@@ -280,10 +656,12 @@ class AnalysisService:
     def _calculate_competitors(self, records: list[dict]) -> list[CompetitorShare]:
         ranked = []
         for index, record in enumerate(records):
+            check_fit = record.get("check_fit_score", 0.5)
             influence = (
-                0.45 * record.get("rating_norm", 0.5)
-                + 0.35 * record["competition_score"]
+                0.40 * record.get("rating_norm", 0.5)
+                + 0.30 * record["competition_score"]
                 + 0.20 * record["demand_score"]
+                + 0.10 * check_fit
             )
             ranked.append((record["name"] or f"Competitor {index + 1}", influence))
 
@@ -292,10 +670,16 @@ class AnalysisService:
         if total <= 0:
             return []
 
-        return [
-            CompetitorShare(name=name, share=round(influence / total * 100))
-            for name, influence in top
-        ]
+        shares = []
+        remaining = 100
+        for idx, (name, influence) in enumerate(top):
+            if idx == len(top) - 1:
+                share = remaining
+            else:
+                share = round(influence / total * 100)
+                remaining -= share
+            shares.append(CompetitorShare(name=name, share=max(0, share)))
+        return shares
 
     def _calculate_trend(self, records: list[dict]) -> str:
         growth_index = (
@@ -353,6 +737,15 @@ class AnalysisService:
         effective_average_check = parsed.planned_average_check or record["average_check"]
         return effective_average_check * estimated_daily_transactions * self.DAYS_PER_YEAR
 
+    def _check_fit_score(self, record_check: float, planned_check: float | None) -> float:
+        if record_check <= 0:
+            return 0.5
+        if planned_check is None or planned_check <= 0:
+            return 0.5
+        relative_gap = abs(record_check - planned_check) / planned_check
+        # 0 gap => 1.0, 100%+ gap => 0.0
+        return self._clamp(1.0 - relative_gap)
+
     def _to_float(self, value) -> float | None:
         if value is None:
             return None
@@ -363,3 +756,19 @@ class AnalysisService:
 
     def _clamp(self, value: float) -> float:
         return min(1.0, max(0.0, value))
+
+    def _haversine_m(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        radius = 6371000.0
+        phi1 = math.radians(lat1)
+        phi2 = math.radians(lat2)
+        d_phi = math.radians(lat2 - lat1)
+        d_lambda = math.radians(lon2 - lon1)
+        a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
+        return 2 * radius * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    def _contains_any(self, text: str, patterns: set[str]) -> bool:
+        return any(pattern in text for pattern in patterns)
+
+    def _normalize_text(self, value: str) -> str:
+        normalized = value.strip().lower().replace("ё", "е")
+        return re.sub(r"\s+", " ", normalized)

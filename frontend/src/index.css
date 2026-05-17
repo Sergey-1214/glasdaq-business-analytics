@@ -17,6 +17,7 @@ body {
   color: #e2e2e2;
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
+  overflow: hidden;
 }
 
 #root {
@@ -29,6 +30,13 @@ button {
   background: none;
   font-family: inherit;
   color: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgba(124, 106, 245, 0.9);
+  outline-offset: 2px;
 }
 
 ul {

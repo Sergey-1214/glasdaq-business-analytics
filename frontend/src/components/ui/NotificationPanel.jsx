@@ -10,12 +10,22 @@ export default function NotificationPanel({ onClose, triggerRef }) {
       if (triggerRef?.current && triggerRef.current.contains(e.target)) return
       if (ref.current && !ref.current.contains(e.target)) onClose()
     }
+
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') onClose()
+    }
+
     document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
   }, [onClose, triggerRef])
 
   return (
-    <div className="notif-panel" ref={ref}>
+    <div className="notif-panel" ref={ref} role="dialog" aria-label="Уведомления">
       <div className="notif-panel__header">
         <span className="notif-panel__title">Уведомления</span>
       </div>
