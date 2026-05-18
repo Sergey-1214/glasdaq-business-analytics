@@ -19,9 +19,11 @@ import AccountBlock from './components/blocks/AccountBlock'
 import MetricsBlock from './components/blocks/MetricsBlock'
 import ChartsBlock from './components/blocks/ChartsBlock'
 import ReportsBlock from './components/blocks/ReportsBlock'
+import MapBlock from './components/blocks/MapBlock'
 import './App.css'
 
 const BLOCK_CONTENT = {
+  map: <MapBlock />,
   assistant: <AssistantChat />,
   account: <AccountBlock />,
   metrics: <MetricsBlock />,
@@ -46,7 +48,7 @@ function MapArea() {
     <div className="map-area">
       {isMapActive && (
         <Block id="map" title={block.title} className="map-area__block">
-          <div className="map-placeholder">Здесь будет карта (react-leaflet)</div>
+          <MapBlock />
         </Block>
       )}
     </div>
