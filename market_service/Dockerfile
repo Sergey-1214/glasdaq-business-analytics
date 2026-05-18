@@ -3,7 +3,8 @@ FROM python:3.11-slim
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN sed '/^[[:space:]]*$/q' requirements.txt | sed '/^[[:space:]]*$/d' > requirements.runtime.txt \
+    && pip install --no-cache-dir --default-timeout=120 -r requirements.runtime.txt
 
 COPY src/ ./src/
 COPY alembic.ini ./
