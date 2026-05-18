@@ -6,6 +6,8 @@ import os
 import sys
 import random
 
+API_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmY2Y0ZTAwMi1iMWJhLTQ4NDItYWVjNS0zNjM2ZmFmMGMxNTQiLCJ1c2VybmFtZSI6InN0cmluZyIsImlzcyI6InVzZXJfYXV0aF9zZXJ2aWNlIiwiaWF0IjoxNzc5MTA1MzY1LCJleHAiOjE3NzkxMDYyNjV9.QIHDdN1I2PUO8Fok6o4PmzvwhLm0U-lcMTURx7C7eGs"
+
 def send_to_api(df: pd.DataFrame, api_url: str) -> dict:
     total = len(df)
     success = 0
@@ -19,6 +21,10 @@ def send_to_api(df: pd.DataFrame, api_url: str) -> dict:
     }
     
     for _, row in df.iterrows():
+        nearest_metro = row.get('nearest_metro', '')
+        if pd.isna(nearest_metro):
+            nearest_metro = ''
+        
         record = {
             "source": "osm",
             "external_id": str(row.get('osm_id', '')),
@@ -31,7 +37,7 @@ def send_to_api(df: pd.DataFrame, api_url: str) -> dict:
             "raw_tags": {},
             "metro_station": {
                 "source": "mos_ru",
-                "station_name": row.get('nearest_metro', ''),
+                "station_name": nearest_metro,
                 "line_name": "",
                 "passenger_flow": int(row.get('metro_passenger_flow', 0)) if not pd.isna(row.get('metro_passenger_flow')) else 0,
                 "latitude": None,
@@ -58,20 +64,28 @@ def send_to_api(df: pd.DataFrame, api_url: str) -> dict:
     
     print(f"Отправка {total} записей")
     
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {API_TOKEN}'
+    }
+    
     try:
         resp = requests.post(
             api_url,
             json=payload,
-            headers={'Content-Type': 'application/json'},
-            timeout=60
+            headers=headers,
+            timeout=120
         )
         
         if resp.status_code == 200 or resp.status_code == 201:
             success = total
             print(f"Успешно отправлено {total} записей")
+        elif resp.status_code == 401:
+            print(f"Ошибка авторизации 401: проверьте токен")
+            print(f"Ответ: {resp.text}")
         else:
             failed = total
-            print(f"Ошибка {resp.status_code}: {resp.text}")
+            print(f"Ошибка {resp.status_code}: {resp.text[:500]}")
             
     except Exception as e:
         failed = total
