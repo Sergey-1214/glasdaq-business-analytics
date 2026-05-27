@@ -11,7 +11,7 @@ export default function TopBar() {
   const [notifOpen, setNotifOpen] = useState(false)
   const workspaceBtnRef = useRef(null)
   const bellBtnRef = useRef(null)
-  const { user, logout } = useAuthStore()
+  const { logout } = useAuthStore()
   const navigate = useNavigate()
 
   function handleLogout() {
@@ -44,11 +44,6 @@ export default function TopBar() {
       </div>
 
       <div className="topbar__right">
-        <span className="topbar__balance">1337.69 RUB</span>
-        {user && (
-          <span className="topbar__username" title={user.email}>{user.username}</span>
-        )}
-
         <div className="topbar__notif-wrapper">
           <button
             ref={bellBtnRef}

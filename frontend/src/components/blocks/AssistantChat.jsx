@@ -9,15 +9,15 @@ import { useLocationStore } from '../../store/locationStore'
 import './AssistantChat.css'
 
 const TREND_LABELS = {
-  growing: 'рост ↑',
-  stable: 'стабильный →',
-  declining: 'снижение ↓',
+  growing: 'рост',
+  stable: 'стабильный',
+  declining: 'снижение',
 }
 
 const VERDICT_LABELS = {
-  favorable: 'Рынок благоприятный — хорошие условия для входа.',
-  neutral: 'Рынок нейтральный — возможен вход при правильном позиционировании.',
-  unfavorable: 'Рынок неблагоприятный — высокая конкуренция или низкий спрос.',
+  favorable: 'Рынок выглядит благоприятно для входа.',
+  neutral: 'Рынок выглядит нейтрально: вход возможен, но позиционирование важно.',
+  unfavorable: 'Рынок выглядит неблагоприятно: конкуренция высокая или спрос ограничен.',
 }
 
 function getFontConfig(focused, zone) {
@@ -142,10 +142,9 @@ function AssistantMessage({ id, text, fontConfig }) {
 
 function formatConfirmation(parsed, hasSelectedPoint) {
   const idea = parsed.normalized_idea || parsed.business_category || 'идея'
-  if (hasSelectedPoint) {
-    return `Понял: «${idea}». Анализирую рынок и выбранную точку...`
-  }
-  return `Понял: «${idea}». Анализирую рынок...`
+  return hasSelectedPoint
+    ? `Понял: «${idea}». Проверяю рынок и выбранную точку.`
+    : `Понял: «${idea}». Проверяю рынок.`
 }
 
 function formatMoney(value) {
@@ -155,6 +154,65 @@ function formatMoney(value) {
   return `${value.toLocaleString('ru-RU')} ₽`
 }
 
+function describeLocalCompetition(location) {
+  if (location.competitors_within_500m >= 4) return 'очень плотная'
+  if (location.competitors_within_500m >= 2) return 'заметная'
+  return 'спокойная'
+}
+
+function describeLocationScore(score) {
+  if (score >= 66) return 'точка выглядит сильной'
+  if (score >= 45) return 'точка выглядит средней'
+  return 'точка выглядит слабой'
+}
+
+function formatAnalyticalCompetitors(competitors) {
+  if (!competitors?.length) return null
+
+  if (competitors.length === 1) {
+    const [competitor] = competitors
+    return `В текущей выборке лидирует ${competitor.name}.`
+  }
+
+  const topCompetitors = competitors
+    .slice(0, 3)
+    .map((competitor) => `${competitor.name} (${competitor.share}%)`)
+    .join(', ')
+
+  return `Наиболее сильные конкуренты в этой выборке: ${topCompetitors}.`
+}
+
+function formatLocationAssessment(location) {
+  const lines = []
+  const localCompetition = describeLocalCompetition(location)
+  const scoreLabel = describeLocationScore(location.opportunity_score)
+
+  lines.push('Оценка выбранной точки:')
+  lines.push(`  Координаты: ${location.latitude}, ${location.longitude}`)
+
+  if (location.nearest_competitor_name) {
+    lines.push(
+      `  Ближайший конкурент: ${location.nearest_competitor_name}, ${location.nearest_competitor_distance_m} м`
+    )
+  }
+
+  lines.push(
+    `  Конкурентов рядом: ${location.competitors_within_500m} в радиусе 500 м и ${location.competitors_within_1km} в радиусе 1 км`
+  )
+  lines.push(
+    `  Пешеходный трафик: ${location.pedestrian_traffic_estimate?.toLocaleString('ru-RU') || '—'}`
+  )
+  lines.push(
+    `  Средняя аренда: ${location.average_rent_m2?.toLocaleString('ru-RU') || '—'} ₽/м²`
+  )
+  lines.push(`  Оценка точки: ${location.opportunity_score}/100`)
+  lines.push(
+    `  Кратко: конкуренция ${localCompetition}, и в целом ${scoreLabel}.`
+  )
+
+  return lines
+}
+
 function formatAnalysis(parsed, analysis) {
   const trend = TREND_LABELS[analysis.trend] ?? analysis.trend
   const verdict = VERDICT_LABELS[analysis.verdict] ?? analysis.verdict
@@ -162,42 +220,19 @@ function formatAnalysis(parsed, analysis) {
 
   lines.push(`Объём рынка (${parsed.region || 'Москва'}):`)
   lines.push(`  Весь рынок (TAM): ${formatMoney(analysis.tam)}`)
-  lines.push(`  Доступный (SAM): ${formatMoney(analysis.sam)}`)
-  lines.push(`  Ваша доля (SOM): ${formatMoney(analysis.som)}`)
+  lines.push(`  Доступный рынок (SAM): ${formatMoney(analysis.sam)}`)
+  lines.push(`  Потенциальная доля (SOM): ${formatMoney(analysis.som)}`)
   lines.push('')
-  lines.push(`Тренд: ${trend}`)
+  lines.push(`Общий фон рынка: ${trend}.`)
 
-  if (analysis.competitors?.length) {
-    const topCompetitors = analysis.competitors
-      .slice(0, 3)
-      .map((competitor) => `${competitor.name} (${competitor.share}%)`)
-      .join(', ')
-    lines.push(`Конкуренты: ${topCompetitors}`)
+  const analyticalCompetitorsLine = formatAnalyticalCompetitors(analysis.competitors)
+  if (analyticalCompetitorsLine) {
+    lines.push(analyticalCompetitorsLine)
   }
 
   if (analysis.location_assessment) {
-    const location = analysis.location_assessment
     lines.push('')
-    lines.push('Оценка выбранной точки:')
-    lines.push(`  Координаты: ${location.latitude}, ${location.longitude}`)
-
-    if (location.nearest_competitor_name) {
-      lines.push(
-        `  Ближайший конкурент: ${location.nearest_competitor_name} (${location.nearest_competitor_distance_m} м)`
-      )
-    }
-
-    lines.push(
-      `  Конкуренция рядом: ${location.competitors_within_500m} в 500 м, ${location.competitors_within_1km} в 1 км`
-    )
-    lines.push(
-      `  Пешеходный трафик: ${location.pedestrian_traffic_estimate?.toLocaleString('ru-RU') || '—'}`
-    )
-    lines.push(
-      `  Средняя аренда: ${location.average_rent_m2?.toLocaleString('ru-RU') || '—'} ₽/м²`
-    )
-    lines.push(`  Доходность точки: ${location.opportunity_score}/100`)
-    lines.push(`  ${location.summary}`)
+    lines.push(...formatLocationAssessment(analysis.location_assessment))
   }
 
   lines.push('')
@@ -229,15 +264,15 @@ export default function AssistantChat() {
   const abortRef = useRef(null)
 
   useEffect(() => {
-    const el = messagesRef.current
-    if (el) el.scrollTop = el.scrollHeight
+    const element = messagesRef.current
+    if (element) element.scrollTop = element.scrollHeight
   }, [messages, loading])
 
   useEffect(() => {
-    const el = inputRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${el.scrollHeight}px`
+    const element = inputRef.current
+    if (!element) return
+    element.style.height = 'auto'
+    element.style.height = `${element.scrollHeight}px`
   }, [input])
 
   async function send() {
@@ -255,17 +290,17 @@ export default function AssistantChat() {
     try {
       const selectedLocationPayload = buildSelectedLocationPayload(selectedPoint)
 
-      const parseRes = await apiFetch('/api/market/api/v1/ideas/parse', {
+      const parseResponse = await apiFetch('/api/market/api/v1/ideas/parse', {
         method: 'POST',
         body: JSON.stringify({ idea: text, region: 'Москва' }),
         signal: controller.signal,
       })
 
-      if (!parseRes.ok) {
+      if (!parseResponse.ok) {
         throw new Error('parse_failed')
       }
 
-      const parseJson = await parseRes.json()
+      const parseJson = await parseResponse.json()
       const parsed = parseJson.data
 
       if ((parsed.confidence ?? 0) < 0.4) {
@@ -280,7 +315,7 @@ export default function AssistantChat() {
       const entryId = addEntry(ideaText, parsed, selectedPoint)
       const confirmId = addMessage('assistant', formatConfirmation(parsed, Boolean(selectedPoint)))
 
-      const analysisRes = await apiFetch('/api/market/api/v1/anal', {
+      const analysisResponse = await apiFetch('/api/market/api/v1/anal', {
         method: 'POST',
         body: JSON.stringify({
           idea: text,
@@ -290,11 +325,11 @@ export default function AssistantChat() {
         signal: controller.signal,
       })
 
-      if (!analysisRes.ok) {
+      if (!analysisResponse.ok) {
         throw new Error('anal_failed')
       }
 
-      const analysisJson = await analysisRes.json()
+      const analysisJson = await analysisResponse.json()
       const analysis = analysisJson.data
 
       updateEntryAnalysis(entryId, analysis)
