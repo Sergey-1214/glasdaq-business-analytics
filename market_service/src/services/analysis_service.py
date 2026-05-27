@@ -16,6 +16,7 @@ from src.schemas import (
     CompetitorShare,
     IdeaParseRequest,
     IdeaParseResponseData,
+    LocationAssessment,
 )
 from src.services.idea_parser_service import IdeaParserService
 
@@ -180,7 +181,7 @@ class AnalysisService:
         self._fill_missing_values(records)
         idea_profile = self._build_idea_profile(payload, parsed)
         location_hints = self._extract_location_hints(payload, parsed)
-        localized_records = self._filter_by_geo_radius(records, region, parsed, idea_profile, location_hints)
+        localized_records = self._filter_by_geo_radius(records, region, payload, parsed, idea_profile, location_hints)
         if not localized_records:
             logger.warning("Geo-radius filtering returned no points; fallback to text/metro filtering was used.")
             localized_records = self._filter_by_location_hints(records, parsed, idea_profile, location_hints)
@@ -196,6 +197,7 @@ class AnalysisService:
         tam = self._calculate_tam(scoring_scope, parsed, idea_profile)
         sam = self._calculate_sam(suitable_records, parsed, idea_profile)
         som = self._calculate_som(sam, suitable_records)
+        location_assessment = self._build_location_assessment(records, payload)
 
         return AnalysisResponse(
             data=AnalysisResponseData(
@@ -205,6 +207,7 @@ class AnalysisService:
                 competitors=self._calculate_competitors(suitable_records),
                 trend=self._calculate_trend(scoring_scope),
                 verdict=self._calculate_verdict(suitable_records),
+                location_assessment=location_assessment,
             )
         )
 
@@ -376,11 +379,12 @@ class AnalysisService:
         self,
         records: list[dict],
         region: str,
+        payload: AnalysisRequest,
         parsed: IdeaParseResponseData,
         idea_profile: dict[str, bool],
         location_hints: list[str],
     ) -> list[dict]:
-        anchor = self._resolve_anchor_point(region, parsed, location_hints)
+        anchor = self._resolve_anchor_point(region, payload, parsed, location_hints)
         if anchor is None:
             return []
 
@@ -400,9 +404,14 @@ class AnalysisService:
     def _resolve_anchor_point(
         self,
         region: str,
+        payload: AnalysisRequest,
         parsed: IdeaParseResponseData,
         location_hints: list[str],
     ) -> tuple[float, float] | None:
+        selected_coordinates = self._extract_selected_coordinates(payload)
+        if selected_coordinates is not None:
+            return selected_coordinates
+
         station_candidates = []
         if parsed.district:
             station_candidates.append(parsed.district)
@@ -434,6 +443,121 @@ class AnalysisService:
         if idea_profile["prefers_outskirts"]:
             return 3000
         return self.DEFAULT_GEO_RADIUS_M
+
+    def _build_location_assessment(
+        self,
+        records: list[dict],
+        payload: AnalysisRequest,
+    ) -> LocationAssessment | None:
+        selected_coordinates = self._extract_selected_coordinates(payload)
+        if selected_coordinates is None:
+            return None
+
+        selected_latitude, selected_longitude = selected_coordinates
+        if not records:
+            return None
+
+        ranked_by_distance = []
+        for record in records:
+            latitude = record.get("latitude")
+            longitude = record.get("longitude")
+            if latitude is None or longitude is None:
+                continue
+            distance = self._haversine_m(selected_latitude, selected_longitude, latitude, longitude)
+            ranked_by_distance.append({**record, "distance_to_selected": distance})
+
+        if not ranked_by_distance:
+            return None
+
+        ranked_by_distance.sort(key=lambda item: item["distance_to_selected"])
+        nearest = ranked_by_distance[0]
+        local_scope = [record for record in ranked_by_distance if record["distance_to_selected"] <= 1500]
+        if not local_scope:
+            local_scope = ranked_by_distance[:5]
+
+        competitors_within_500m = sum(1 for record in ranked_by_distance if record["distance_to_selected"] <= 500)
+        competitors_within_1km = sum(1 for record in ranked_by_distance if record["distance_to_selected"] <= 1000)
+
+        pedestrian_traffic = self._weighted_average(local_scope, "pedestrian_traffic_estimate")
+        metro_passenger_flow = self._weighted_average(local_scope, "metro_passenger_flow")
+        average_rent = self._weighted_average(local_scope, "average_rent_m2")
+        average_check = self._weighted_average(local_scope, "average_check")
+        median_income = self._weighted_average(local_scope, "median_income")
+        office_density = self._weighted_average(local_scope, "office_density")
+        available_spaces = self._weighted_average(local_scope, "available_commercial_spaces")
+        distance_to_metro = self._weighted_average(local_scope, "distance_to_metro")
+
+        pedestrian_norm = self._relative_position(
+            pedestrian_traffic,
+            [record["pedestrian_traffic_estimate"] for record in records],
+        )
+        metro_norm = self._relative_position(
+            metro_passenger_flow,
+            [record["metro_passenger_flow"] for record in records],
+        )
+        income_norm = self._relative_position(
+            median_income,
+            [record["median_income"] for record in records],
+        )
+        rent_norm = self._invert(
+            self._relative_position(
+                average_rent,
+                [record["average_rent_m2"] for record in records],
+            )
+        )
+        competition_norm = self._relative_position(
+            competitors_within_500m,
+            [record["cafes_300m"] for record in records],
+        )
+        office_norm = self._relative_position(
+            office_density,
+            [record["office_density"] for record in records],
+        )
+        spaces_norm = self._relative_position(
+            available_spaces,
+            [record["available_commercial_spaces"] for record in records],
+        )
+        metro_distance_norm = self._invert(
+            self._relative_position(
+                distance_to_metro,
+                [record["distance_to_metro"] for record in records],
+            )
+        )
+
+        opportunity_score = self._clamp(
+            0.24 * pedestrian_norm
+            + 0.16 * metro_norm
+            + 0.14 * income_norm
+            + 0.12 * office_norm
+            + 0.12 * rent_norm
+            + 0.10 * spaces_norm
+            + 0.12 * metro_distance_norm
+            - 0.18 * competition_norm
+        )
+        verdict = self._location_verdict(opportunity_score)
+        summary = self._location_summary(
+            nearest_name=nearest.get("name"),
+            nearest_distance_m=nearest["distance_to_selected"],
+            competitors_within_500m=competitors_within_500m,
+            opportunity_score=opportunity_score,
+        )
+
+        return LocationAssessment(
+            latitude=round(selected_latitude, 6),
+            longitude=round(selected_longitude, 6),
+            nearest_competitor_name=nearest.get("name"),
+            nearest_competitor_distance_m=round(nearest["distance_to_selected"]),
+            competitors_within_500m=competitors_within_500m,
+            competitors_within_1km=competitors_within_1km,
+            pedestrian_traffic_estimate=round(pedestrian_traffic),
+            metro_passenger_flow=round(metro_passenger_flow),
+            average_rent_m2=round(average_rent),
+            average_check=round(average_check),
+            median_income=round(median_income),
+            opportunity_score=round(opportunity_score * 100),
+            verdict=verdict,
+            summary=summary,
+        )
 
     def _calculate_scores(
         self,
@@ -756,6 +880,66 @@ class AnalysisService:
 
     def _clamp(self, value: float) -> float:
         return min(1.0, max(0.0, value))
+
+    def _relative_position(self, value: float, population: list[float]) -> float:
+        if not population:
+            return 0.5
+        min_value = min(population)
+        max_value = max(population)
+        if math.isclose(min_value, max_value):
+            return 0.5
+        return self._clamp((value - min_value) / (max_value - min_value))
+
+    def _weighted_average(self, records: list[dict], field: str) -> float:
+        weighted_sum = 0.0
+        total_weight = 0.0
+        for record in records:
+            value = record.get(field)
+            if value is None:
+                continue
+            distance = max(float(record.get("distance_to_selected") or 0.0), 75.0)
+            weight = 1 / distance
+            weighted_sum += float(value) * weight
+            total_weight += weight
+
+        if total_weight <= 0:
+            values = [float(record[field]) for record in records if record.get(field) is not None]
+            return sum(values) / len(values) if values else 0.0
+        return weighted_sum / total_weight
+
+    def _extract_selected_coordinates(self, payload: AnalysisRequest) -> tuple[float, float] | None:
+        if payload.selected_latitude is None or payload.selected_longitude is None:
+            return None
+        return float(payload.selected_latitude), float(payload.selected_longitude)
+
+    def _location_verdict(self, opportunity_score: float) -> str:
+        if opportunity_score >= 0.66:
+            return "favorable"
+        if opportunity_score >= 0.45:
+            return "neutral"
+        return "unfavorable"
+
+    def _location_summary(
+        self,
+        nearest_name: str | None,
+        nearest_distance_m: float,
+        competitors_within_500m: int,
+        opportunity_score: float,
+    ) -> str:
+        score_percent = round(opportunity_score * 100)
+        nearest_text = (
+            f"Ближайший конкурент: {nearest_name}, {round(nearest_distance_m)} м."
+            if nearest_name
+            else "Ближайший конкурент не найден."
+        )
+        density_text = (
+            "Конкуренция очень плотная."
+            if competitors_within_500m >= 4
+            else "Конкуренция умеренная."
+            if competitors_within_500m >= 2
+            else "Непосредственно рядом конкурентов немного."
+        )
+        return f"{nearest_text} {density_text} Интегральная оценка точки: {score_percent}/100."
 
     def _haversine_m(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
         radius = 6371000.0

@@ -33,16 +33,34 @@ class IdeasService:
         self.analysis_service = AnalysisService(db)
 
     async def create_idea(self, user_id: UUID, payload: IdeaCreateRequest) -> IdeaResponse:
-        analysis_request = AnalysisRequest(idea=payload.idea, region=payload.region)
-        parsed = await self.analysis_service._parse_idea(analysis_request)
-        analysis = await self.analysis_service.analyze(analysis_request)
+        analysis_request = AnalysisRequest(
+            idea=payload.idea,
+            region=payload.region,
+            selected_latitude=payload.selected_latitude,
+            selected_longitude=payload.selected_longitude,
+        )
+        parsed = payload.parsed_payload or await self.analysis_service._parse_idea(analysis_request)
+        analysis = (
+            payload.analysis_payload
+            if payload.analysis_payload is not None
+            else (await self.analysis_service.analyze(analysis_request)).data
+        )
+        parsed_payload = parsed.model_dump()
+        analysis_payload = analysis.model_dump()
+
+        selected_location = self._build_selected_location_payload(
+            payload.selected_latitude,
+            payload.selected_longitude,
+        )
+        if selected_location is not None:
+            parsed_payload["selected_location"] = selected_location
 
         idea = Idea(
             user_id=user_id,
             idea_text=payload.idea,
             normalized_title=parsed.normalized_idea[:255] if parsed.normalized_idea else None,
-            parsed_payload=parsed.model_dump(),
-            analysis_payload=analysis.data.model_dump(),
+            parsed_payload=parsed_payload,
+            analysis_payload=analysis_payload,
         )
         self.repository.add_idea(idea)
         self.db.commit()
@@ -218,3 +236,15 @@ class IdeasService:
             except OSError:
                 continue
         raise PermissionError("No writable storage directory for reports")
+
+    def _build_selected_location_payload(
+        self,
+        latitude: float | None,
+        longitude: float | None,
+    ) -> dict[str, float] | None:
+        if latitude is None or longitude is None:
+            return None
+        return {
+            "latitude": float(latitude),
+            "longitude": float(longitude),
+        }

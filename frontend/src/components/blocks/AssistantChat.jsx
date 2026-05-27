@@ -5,6 +5,7 @@ import { apiFetch } from '../../api/client'
 import { useAnalysisStore } from '../../store/analysisStore'
 import { useChatStore } from '../../store/chatStore'
 import { useDashboardStore } from '../../store/dashboardStore'
+import { useLocationStore } from '../../store/locationStore'
 import './AssistantChat.css'
 
 const TREND_LABELS = {
@@ -139,19 +140,22 @@ function AssistantMessage({ id, text, fontConfig }) {
   return <CanvasAnimation id={id} text={text} fontConfig={fontConfig} />
 }
 
-function formatConfirmation(parsed) {
+function formatConfirmation(parsed, hasSelectedPoint) {
   const idea = parsed.normalized_idea || parsed.business_category || 'идея'
+  if (hasSelectedPoint) {
+    return `Понял: «${idea}». Анализирую рынок и выбранную точку...`
+  }
   return `Понял: «${idea}». Анализирую рынок...`
 }
 
-function formatAnalysis(parsed, analysis) {
-  const formatMoney = (value) => {
-    if (!value) return '—'
-    if (value >= 1e9) return `${(value / 1e9).toFixed(1)} млрд ₽`
-    if (value >= 1e6) return `${(value / 1e6).toFixed(0)} млн ₽`
-    return `${value.toLocaleString('ru-RU')} ₽`
-  }
+function formatMoney(value) {
+  if (!value) return '—'
+  if (value >= 1e9) return `${(value / 1e9).toFixed(1)} млрд ₽`
+  if (value >= 1e6) return `${(value / 1e6).toFixed(0)} млн ₽`
+  return `${value.toLocaleString('ru-RU')} ₽`
+}
 
+function formatAnalysis(parsed, analysis) {
   const trend = TREND_LABELS[analysis.trend] ?? analysis.trend
   const verdict = VERDICT_LABELS[analysis.verdict] ?? analysis.verdict
   const lines = []
@@ -171,16 +175,50 @@ function formatAnalysis(parsed, analysis) {
     lines.push(`Конкуренты: ${topCompetitors}`)
   }
 
+  if (analysis.location_assessment) {
+    const location = analysis.location_assessment
+    lines.push('')
+    lines.push('Оценка выбранной точки:')
+    lines.push(`  Координаты: ${location.latitude}, ${location.longitude}`)
+
+    if (location.nearest_competitor_name) {
+      lines.push(
+        `  Ближайший конкурент: ${location.nearest_competitor_name} (${location.nearest_competitor_distance_m} м)`
+      )
+    }
+
+    lines.push(
+      `  Конкуренция рядом: ${location.competitors_within_500m} в 500 м, ${location.competitors_within_1km} в 1 км`
+    )
+    lines.push(
+      `  Пешеходный трафик: ${location.pedestrian_traffic_estimate?.toLocaleString('ru-RU') || '—'}`
+    )
+    lines.push(
+      `  Средняя аренда: ${location.average_rent_m2?.toLocaleString('ru-RU') || '—'} ₽/м²`
+    )
+    lines.push(`  Доходность точки: ${location.opportunity_score}/100`)
+    lines.push(`  ${location.summary}`)
+  }
+
   lines.push('')
   lines.push(verdict)
 
   return lines.join('\n')
 }
 
+function buildSelectedLocationPayload(selectedPoint) {
+  if (!selectedPoint) return {}
+  return {
+    selected_latitude: selectedPoint[1],
+    selected_longitude: selectedPoint[0],
+  }
+}
+
 export default function AssistantChat() {
   const { focusedBlockId, zones } = useDashboardStore()
   const { messages, loading, addMessage, updateMessage, setLoading } = useChatStore()
   const { addEntry, updateEntryAnalysis } = useAnalysisStore()
+  const selectedPoint = useLocationStore((state) => state.selectedPoint)
   const isFocused = focusedBlockId === 'assistant'
   const zone = Object.entries(zones).find(([, ids]) => ids.includes('assistant'))?.[0] ?? 'right'
   const fontConfig = useMemo(() => getFontConfig(isFocused, zone), [isFocused, zone])
@@ -215,6 +253,8 @@ export default function AssistantChat() {
     setLoading(true)
 
     try {
+      const selectedLocationPayload = buildSelectedLocationPayload(selectedPoint)
+
       const parseRes = await apiFetch('/api/market/api/v1/ideas/parse', {
         method: 'POST',
         body: JSON.stringify({ idea: text, region: 'Москва' }),
@@ -229,17 +269,24 @@ export default function AssistantChat() {
       const parsed = parseJson.data
 
       if ((parsed.confidence ?? 0) < 0.4) {
-        addMessage('assistant', 'Это не похоже на бизнес-идею. Опишите продукт или услугу чуть конкретнее, и я попробую снова.')
+        addMessage(
+          'assistant',
+          'Это не похоже на бизнес-идею. Опишите продукт или услугу чуть конкретнее, и я попробую снова.'
+        )
         return
       }
 
       const ideaText = parsed.normalized_idea || text
-      const entryId = addEntry(ideaText, parsed)
-      const confirmId = addMessage('assistant', formatConfirmation(parsed))
+      const entryId = addEntry(ideaText, parsed, selectedPoint)
+      const confirmId = addMessage('assistant', formatConfirmation(parsed, Boolean(selectedPoint)))
 
       const analysisRes = await apiFetch('/api/market/api/v1/anal', {
         method: 'POST',
-        body: JSON.stringify({ idea: text, region: parsed.region || 'Москва' }),
+        body: JSON.stringify({
+          idea: text,
+          region: parsed.region || 'Москва',
+          ...selectedLocationPayload,
+        }),
         signal: controller.signal,
       })
 
@@ -252,20 +299,58 @@ export default function AssistantChat() {
 
       updateEntryAnalysis(entryId, analysis)
       updateMessage(confirmId, formatAnalysis(parsed, analysis))
+
+      try {
+        const saveResponse = await apiFetch('/api/market/ideas', {
+          method: 'POST',
+          body: JSON.stringify({
+            idea: text,
+            region: parsed.region || 'Москва',
+            ...selectedLocationPayload,
+            parsed_payload: {
+              ...parsed,
+              selected_location: selectedPoint
+                ? {
+                    latitude: selectedPoint[1],
+                    longitude: selectedPoint[0],
+                  }
+                : null,
+            },
+            analysis_payload: analysis,
+          }),
+          signal: controller.signal,
+        })
+
+        if (!saveResponse.ok) {
+          throw new Error('save_failed')
+        }
+      } catch (saveError) {
+        console.error('Failed to persist idea after analysis:', saveError)
+        addMessage('assistant', 'Анализ выполнен, но сохранить его в историю пока не удалось.')
+      }
     } catch (error) {
       if (error.name === 'AbortError') return
 
       if (error.message === 'parse_failed') {
-        addMessage('assistant', 'Не удалось распознать идею. Попробуйте описать продукт или услугу чуть подробнее.')
+        addMessage(
+          'assistant',
+          'Не удалось распознать идею. Попробуйте описать продукт или услугу чуть подробнее.'
+        )
         return
       }
 
       if (error.message === 'anal_failed') {
-        addMessage('assistant', 'Идея распознана, но анализ рынка сейчас не ответил. Попробуйте повторить запрос чуть позже.')
+        addMessage(
+          'assistant',
+          'Идея распознана, но анализ рынка сейчас не ответил. Попробуйте повторить запрос чуть позже.'
+        )
         return
       }
 
-      addMessage('assistant', 'Не удалось выполнить анализ. Проверьте подключение к сервису или попробуйте позже.')
+      addMessage(
+        'assistant',
+        'Не удалось выполнить анализ. Проверьте подключение к сервису или попробуйте позже.'
+      )
     } finally {
       if (abortRef.current === controller) {
         abortRef.current = null
@@ -274,9 +359,9 @@ export default function AssistantChat() {
     }
   }
 
-  function onKeyDown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
+  function onKeyDown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
       send()
     }
   }
@@ -284,15 +369,15 @@ export default function AssistantChat() {
   return (
     <div className={`chat chat--${zone} ${isFocused ? 'chat--focused' : ''}`}>
       <div className="chat__messages" ref={messagesRef}>
-        {messages.map((msg) =>
-          msg.role === 'user' ? (
-            <div key={msg.id} className="chat__row chat__row--user">
-              <div className="chat__bubble chat__bubble--user">{msg.text}</div>
+        {messages.map((message) =>
+          message.role === 'user' ? (
+            <div key={message.id} className="chat__row chat__row--user">
+              <div className="chat__bubble chat__bubble--user">{message.text}</div>
             </div>
           ) : (
-            <div key={msg.id} className="chat__row chat__row--assistant">
+            <div key={message.id} className="chat__row chat__row--assistant">
               <div className="chat__bubble chat__bubble--assistant">
-                <AssistantMessage id={msg.id} text={msg.text} fontConfig={fontConfig} />
+                <AssistantMessage id={message.id} text={message.text} fontConfig={fontConfig} />
               </div>
             </div>
           ),
@@ -307,13 +392,13 @@ export default function AssistantChat() {
         )}
       </div>
 
-      <div className="chat__input-area" onPointerDown={(e) => e.stopPropagation()}>
+      <div className="chat__input-area" onPointerDown={(event) => event.stopPropagation()}>
         <textarea
           ref={inputRef}
           className="chat__input"
           placeholder="Опишите бизнес-идею..."
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(event) => setInput(event.target.value)}
           onKeyDown={onKeyDown}
           rows={1}
           disabled={loading}

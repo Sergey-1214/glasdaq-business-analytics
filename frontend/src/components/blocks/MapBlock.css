@@ -74,6 +74,36 @@
   backdrop-filter: blur(8px);
 }
 
+.map-block__action {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgba(109, 122, 151, 0.45);
+  border-radius: 8px;
+  color: #f2f5fb;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(22, 28, 40, 0.96);
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.map-block__action:hover {
+  border-color: rgba(144, 158, 190, 0.65);
+  background: rgba(31, 38, 53, 0.98);
+}
+
+.map-block__action:active {
+  transform: translateY(1px);
+}
+
+.map-block__action--active {
+  border-color: rgba(79, 211, 154, 0.58);
+  background: rgba(16, 52, 40, 0.96);
+}
+
 .map-block__legend {
   display: flex;
   flex-wrap: wrap;
@@ -120,6 +150,12 @@
   color: #f2f5fb;
   font-size: 12px;
   font-weight: 600;
+}
+
+.map-block__name {
+  color: #f2f5fb;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .map-block__coordinates {

@@ -8,11 +8,11 @@ export const useAnalysisStore = create((set) => ({
   analysis: null,
   preparedReports: [],
 
-  addEntry: (ideaText, parsed) => {
+  addEntry: (ideaText, parsed, selectedPoint = null) => {
     const id = ++entryId
     const createdAt = new Date().toISOString()
     set((s) => ({
-      entries: [...s.entries, { id, ideaText, parsed, analysis: null, createdAt }],
+      entries: [...s.entries, { id, ideaText, parsed, analysis: null, selectedPoint, createdAt }],
       parsed,
       analysis: null,
     }))

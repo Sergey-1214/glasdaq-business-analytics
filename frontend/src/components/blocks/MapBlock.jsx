@@ -1,37 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
+import { apiFetch } from '../../api/client'
+import { useLocationStore } from '../../store/locationStore'
 import './MapBlock.css'
 
 const MAPGL_SCRIPT_ID = 'dgis-mapgl-script'
 const MAPGL_SCRIPT_SRC = 'https://mapgl.2gis.com/api/js/v1'
 const MOSCOW_CENTER = [37.6176, 55.7558]
 const DEFAULT_ZOOM = 11.8
-
-const DEMO_COMPETITORS = [
-  {
-    id: 'comp-1',
-    name: 'Конкурент на Тверской',
-    description: 'Высокий пешеходный трафик',
-    coordinates: [37.60518, 55.76471],
-  },
-  {
-    id: 'comp-2',
-    name: 'Конкурент у Павелецкой',
-    description: 'Сильный офисный кластер',
-    coordinates: [37.63612, 55.73119],
-  },
-  {
-    id: 'comp-3',
-    name: 'Конкурент на Проспекте Мира',
-    description: 'Хорошая видимость с магистрали',
-    coordinates: [37.63353, 55.78111],
-  },
-  {
-    id: 'comp-4',
-    name: 'Конкурент у Кутузовской',
-    description: 'Трафик из жилого массива',
-    coordinates: [37.5428, 55.73977],
-  },
-]
+const DEFAULT_REGION = 'Москва'
+const DEFAULT_CATEGORY = 'coffee_shop'
 
 function loadMapGlScript() {
   if (window.mapgl) return Promise.resolve(window.mapgl)
@@ -71,6 +48,7 @@ function createMarkerIcon(color) {
 }
 
 function formatCoordinates(coordinates) {
+  if (!coordinates) return ''
   const [lng, lat] = coordinates
   return `${lat.toFixed(6)}, ${lng.toFixed(6)}`
 }
@@ -149,12 +127,26 @@ export default function MapBlock() {
   const apiKey = import.meta.env.VITE_2GIS_API_KEY
   const mapContainerRef = useRef(null)
   const cleanupRef = useRef(() => {})
+  const selectedMarkerRef = useRef(null)
+  const isPickingPointRef = useRef(false)
+  const selectedPointRef = useRef(null)
+  const selectedPoint = useLocationStore((state) => state.selectedPoint)
+  const setSelectedPoint = useLocationStore((state) => state.setSelectedPoint)
 
   const [status, setStatus] = useState(apiKey ? 'loading' : 'missing-key')
   const [errorMessage, setErrorMessage] = useState('')
   const [errorDetails, setErrorDetails] = useState('')
-  const [selectedPoint, setSelectedPoint] = useState(MOSCOW_CENTER)
   const [selectedCompetitor, setSelectedCompetitor] = useState(null)
+  const [competitorsCount, setCompetitorsCount] = useState(0)
+  const [isPickingPoint, setIsPickingPoint] = useState(false)
+
+  useEffect(() => {
+    isPickingPointRef.current = isPickingPoint
+  }, [isPickingPoint])
+
+  useEffect(() => {
+    selectedPointRef.current = selectedPoint
+  }, [selectedPoint])
 
   useEffect(() => {
     if (!apiKey) return undefined
@@ -166,6 +158,23 @@ export default function MapBlock() {
         setStatus('loading')
         setErrorMessage('')
         setErrorDetails('')
+
+        const response = await apiFetch(
+          `/api/market/api/v1/market-points?region=${encodeURIComponent(DEFAULT_REGION)}&category=${encodeURIComponent(DEFAULT_CATEGORY)}&limit=100`
+        )
+
+        if (!response.ok) {
+          throw new Error('Не удалось загрузить реальные точки конкурентов из market_service.')
+        }
+
+        const payload = await response.json()
+        const competitors = (payload?.data || []).map((point) => ({
+          id: point.id,
+          name: point.name,
+          coordinates: [point.longitude, point.latitude],
+        }))
+
+        setCompetitorsCount(competitors.length)
 
         const mapgl = await loadMapGlScript()
         if (isDisposed || !mapContainerRef.current) return
@@ -189,54 +198,61 @@ export default function MapBlock() {
           }
         })
 
-        map.on('destroy', () => {
-          console.info('2GIS map destroyed')
-        })
+        const ensureSelectedMarker = () => {
+          if (selectedMarkerRef.current) {
+            return selectedMarkerRef.current
+          }
 
-        const competitorMarkers = DEMO_COMPETITORS.map((competitor) => {
+          selectedMarkerRef.current = new mapgl.Marker(map, {
+            coordinates: MOSCOW_CENTER,
+            icon: createMarkerIcon('#4fd39a'),
+            size: [34, 44],
+          })
+
+          return selectedMarkerRef.current
+        }
+
+        if (selectedPointRef.current) {
+          const selectedMarker = ensureSelectedMarker()
+          selectedMarker.setCoordinates(selectedPointRef.current)
+        }
+
+        const competitorMarkers = competitors.map((competitor) => {
           const marker = new mapgl.Marker(map, {
             coordinates: competitor.coordinates,
             icon: createMarkerIcon('#ff6b57'),
             size: [34, 44],
-            label: {
-              text: competitor.name,
-              offset: [0, -48],
-              relativeAnchor: [0.5, 1],
-            },
           })
 
           marker.on('click', () => {
+            setIsPickingPoint(false)
             setSelectedCompetitor(competitor)
           })
 
           return marker
         })
 
-        const selectedMarker = new mapgl.Marker(map, {
-          coordinates: MOSCOW_CENTER,
-          icon: createMarkerIcon('#4fd39a'),
-          size: [34, 44],
-          draggable: true,
-        })
-
-        function syncSelectedPoint(nextCoordinates) {
-          selectedMarker.setCoordinates(nextCoordinates)
-          setSelectedPoint(nextCoordinates)
-          setSelectedCompetitor(null)
-        }
-
-        syncSelectedPoint(MOSCOW_CENTER)
-
         map.on('click', (event) => {
-          syncSelectedPoint(event.lngLat)
-        })
+          if (isPickingPointRef.current) {
+            const nextCoordinates = event.lngLat
+            const selectedMarker = ensureSelectedMarker()
 
-        selectedMarker.on('dragend', () => {
-          syncSelectedPoint(selectedMarker.getCoordinates())
+            selectedMarker.setCoordinates(nextCoordinates)
+            setSelectedPoint(nextCoordinates)
+            setSelectedCompetitor(null)
+            setIsPickingPoint(false)
+            return
+          }
+
+          setSelectedCompetitor(null)
         })
 
         cleanupRef.current = () => {
-          selectedMarker.destroy()
+          if (selectedMarkerRef.current) {
+            selectedMarkerRef.current.destroy()
+            selectedMarkerRef.current = null
+          }
+
           competitorMarkers.forEach((marker) => marker.destroy())
           map.destroy()
         }
@@ -263,7 +279,39 @@ export default function MapBlock() {
       cleanupRef.current()
       cleanupRef.current = () => {}
     }
-  }, [apiKey])
+  }, [apiKey, setSelectedPoint])
+
+  function handlePickPointToggle() {
+    setSelectedCompetitor(null)
+    setIsPickingPoint((currentValue) => !currentValue)
+  }
+
+  function renderPanelSummary() {
+    if (selectedCompetitor) {
+      return (
+        <div className="map-block__summary">
+          <div className="map-block__title">Выбранный конкурент</div>
+          <div className="map-block__name">{selectedCompetitor.name}</div>
+        </div>
+      )
+    }
+
+    if (selectedPoint) {
+      return (
+        <div className="map-block__summary">
+          <div className="map-block__title">Ваша будущая точка</div>
+          <div className="map-block__coordinates">{formatCoordinates(selectedPoint)}</div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="map-block__summary">
+        <div className="map-block__title">Ваша будущая точка</div>
+        <div className="map-block__hint">Точка еще не выбрана</div>
+      </div>
+    )
+  }
 
   return (
     <div className="map-block">
@@ -281,7 +329,7 @@ export default function MapBlock() {
           {status === 'loading' && (
             <>
               <strong>Загружаем карту Москвы</strong>
-              <span>Подтягиваем SDK 2GIS и готовим слой с точками конкурентов.</span>
+              <span>Подтягиваем SDK 2GIS и реальные точки конкурентов из market_service.</span>
             </>
           )}
 
@@ -299,30 +347,29 @@ export default function MapBlock() {
         <div className="map-block__legend map-block__legend--compact">
           <span>
             <i className="map-block__legend-dot map-block__legend-dot--selected" />
-            Моя точка
+            Ваша точка
           </span>
           <span>
             <i className="map-block__legend-dot map-block__legend-dot--competitor" />
-            Конкурент
+            {`Конкуренты: ${competitorsCount}`}
           </span>
         </div>
 
-        <div className="map-block__summary">
-          {selectedCompetitor ? (
-            <>
-              <div className="map-block__title">{selectedCompetitor.name}</div>
-              <div className="map-block__coordinates">
-                {formatCoordinates(selectedCompetitor.coordinates)}
-              </div>
-              <div className="map-block__hint">{selectedCompetitor.description}</div>
-            </>
-          ) : (
-            <>
-              <div className="map-block__title">Ваша будущая точка</div>
-              <div className="map-block__coordinates">{formatCoordinates(selectedPoint)}</div>
-            </>
-          )}
-        </div>
+        <button
+          className={`map-block__action ${isPickingPoint ? 'map-block__action--active' : ''}`}
+          type="button"
+          onClick={handlePickPointToggle}
+        >
+          {isPickingPoint ? 'Отмена выбора' : selectedPoint ? 'Изменить точку' : 'Выбрать точку'}
+        </button>
+
+        {isPickingPoint && (
+          <div className="map-block__hint">
+            Нажмите на карту, чтобы поставить точку для своей кофейни.
+          </div>
+        )}
+
+        {renderPanelSummary()}
       </div>
     </div>
   )
