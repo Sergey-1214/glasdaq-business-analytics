@@ -17,6 +17,7 @@ services:
       USER_AUTH_SERVICE_URL: ${USER_AUTH_SERVICE_URL:-http://user_auth_service:8007}
       DEBUG: ${DEBUG}
       LOG_LEVEL: ${LOG_LEVEL}
+      REPORTS_DIR: /app/reports
     env_file:
       - .env
     depends_on:
@@ -28,6 +29,8 @@ services:
       - product_implementation
       - parsers
       - user_auth_service
+    volumes:
+      - market-reports-data:/app/reports 
     networks:
       - backend
     restart: unless-stopped

@@ -26,10 +26,11 @@ app.add_middleware(
 client = httpx.AsyncClient(timeout=httpx.Timeout(connect=10.0, read=180.0, write=10.0, pool=10.0))
 
 # ========== КОНФИГУРАЦИЯ ДЛЯ ХРАНЕНИЯ ОТЧЕТОВ ==========
+# Используем отдельный том market-reports-data
 REPORTS_DIR = os.getenv("REPORTS_DIR", "/app/reports")
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
-# ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+# Helper funcs
 
 def check_api_key(request: Request):
     api_key = request.headers.get("x-api-key")
@@ -137,6 +138,26 @@ def delete_report_file(user_id: str, report_id: str) -> bool:
             return False
     return False
 
+def get_user_registration_date(user_id: str) -> Optional[str]:
+    """
+    Получает дату регистрации пользователя из user-auth-db
+    Через внутренний запрос к user_auth_service
+    """
+    try:
+        # Синхронный вызов для простоты (или можно сделать асинхронным)
+        import httpx as sync_httpx
+        response = sync_httpx.get(
+            f"{SERVICES.get('user_auth_service', 'http://user_auth_service:8007')}/api/v1/user/{user_id}",
+            timeout=5.0
+        )
+        if response.status_code == 200:
+            user_data = response.json()
+            return user_data.get("created_at") or user_data.get("registration_date")
+    except Exception as e:
+        logger.error(f"Error fetching user registration date: {e}")
+    
+    return None
+
 
 # ========== MIDDLEWARE ==========
 
@@ -179,17 +200,14 @@ async def gateway(service: str, path: str, request: Request):
             params=request.query_params,
         )
         
-        # ========== ПЕРЕХВАТ ОТВЕТА ОТ ОРКЕСТРАТОРА ДЛЯ СОХРАНЕНИЯ ==========
-        # Если это ответ от оркестратора с завершенным анализом
+        # Перехват ответа от оркестратора для сохранения
         if service == "orchestrator" and path == "api/v1/result" and request.method == "GET":
             if response.status_code == 200:
                 result_data = response.json()
                 if result_data.get("status") == "completed":
                     user_id = get_user_id_from_request(request)
                     if user_id:
-                        # Сохраняем отчет автоматически
                         report_id = save_report_to_file(user_id, result_data)
-                        # Добавляем report_id в ответ
                         result_data["report_id"] = report_id
                         return JSONResponse(content=result_data)
         
@@ -207,26 +225,16 @@ async def gateway(service: str, path: str, request: Request):
         raise HTTPException(status_code=500, detail="Internal gateway error")
 
 
-# ========== НОВЫЕ РОУТЫ ДЛЯ ИСТОРИИ ОТЧЕТОВ ==========
+# Report history routes
 
 @app.post("/api/reports/save")
 async def save_report(request: Request):
-    """
-    Сохранить отчет в историю пользователя
-    
-    Body:
-    {
-        "report_data": {...},
-        "user_id": "optional_if_in_header"
-    }
-    """
+    """Сохранить отчет в историю пользователя"""
     check_api_key(request)
     
-    # Получаем user_id
     user_id = get_user_id_from_request(request)
     body = await request.json()
     
-    # Если user_id не в заголовке, пробуем из тела запроса
     if not user_id:
         user_id = body.get("user_id")
     
@@ -249,9 +257,7 @@ async def save_report(request: Request):
 
 @app.get("/api/reports")
 async def get_reports_list(request: Request):
-    """
-    Получить список всех отчетов пользователя
-    """
+    """Получить список всех отчетов пользователя"""
     check_api_key(request)
     
     user_id = get_user_id_from_request(request)
@@ -270,9 +276,7 @@ async def get_reports_list(request: Request):
 
 @app.get("/api/reports/{report_id}")
 async def get_report(request: Request, report_id: str):
-    """
-    Получить конкретный отчет по ID
-    """
+    """Получить конкретный отчет по ID"""
     check_api_key(request)
     
     user_id = get_user_id_from_request(request)
@@ -292,9 +296,7 @@ async def get_report(request: Request, report_id: str):
 
 @app.delete("/api/reports/{report_id}")
 async def delete_report(request: Request, report_id: str):
-    """
-    Удалить отчет по ID
-    """
+    """Удалить отчет по ID"""
     check_api_key(request)
     
     user_id = get_user_id_from_request(request)
@@ -311,11 +313,20 @@ async def delete_report(request: Request, report_id: str):
         "message": "Report deleted successfully"
     }
 
-
-@app.get("/api/reports/stats")
-async def get_reports_stats(request: Request):
+# User stats
+@app.get("/api/user/stats")
+async def get_user_stats(request: Request):
     """
-    Получить статистику по отчетам пользователя
+    Получить расширенную статистику пользователя
+    
+    Возвращает:
+    - total_analyses: количество анализов (отчетов)
+    - total_reports: количество отчетов (синоним)
+    - registration_date: дата регистрации
+    - last_active: дата последней активности
+    - first_analysis: дата первого анализа
+    - last_analysis: дата последнего анализа
+    - analyses_by_month: количество анализов по месяцам
     """
     check_api_key(request)
     
@@ -323,82 +334,66 @@ async def get_reports_stats(request: Request):
     if not user_id:
         raise HTTPException(status_code=400, detail="User ID required (x-user-id header)")
     
+    # Получаем все отчеты пользователя
     reports = get_user_reports(user_id)
     
-    # Статистика
-    total = len(reports)
+    # Получаем дату регистрации из user-auth-db
+    registration_date = get_user_registration_date(user_id)
     
-    # Подсчет отчетов по месяцам
-    monthly_stats = {}
-    for report in reports:
-        created_at = report.get("created_at", "")
-        if created_at:
-            month = created_at[:7]  # YYYY-MM
-            monthly_stats[month] = monthly_stats.get(month, 0) + 1
+    # Базовая статистика
+    total_analyses = len(reports)
+    total_reports = total_analyses  # отчет = анализ
+    
+    # Даты первого и последнего анализа
+    first_analysis = None
+    last_analysis = None
+    analyses_by_month = {}
+    
+    if reports:
+        # Последний отчет (первый в списке, т.к. сортировка по убыванию)
+        last_analysis = reports[0].get("created_at")
+        # Первый отчет (последний в списке)
+        first_analysis = reports[-1].get("created_at")
+        
+        # Группировка по месяцам
+        for report in reports:
+            created_at = report.get("created_at", "")
+            if created_at:
+                month = created_at[:7]  # YYYY-MM
+                analyses_by_month[month] = analyses_by_month.get(month, 0) + 1
+    
+    # Получаем дату последней активности (из user-auth-db или последний отчет)
+    last_active = None
+    try:
+        import httpx as sync_httpx
+        response = sync_httpx.get(
+            f"{SERVICES.get('user_auth_service', 'http://user_auth_service:8007')}/api/v1/user/{user_id}/activity",
+            timeout=5.0
+        )
+        if response.status_code == 200:
+            activity_data = response.json()
+            last_active = activity_data.get("last_login") or activity_data.get("last_active")
+    except Exception as e:
+        logger.error(f"Error fetching user activity: {e}")
+    
+    # Если не удалось получить из user-auth-db, используем дату последнего отчета
+    if not last_active and last_analysis:
+        last_active = last_analysis
     
     return {
         "success": True,
         "user_id": user_id,
-        "total_reports": total,
-        "monthly_stats": monthly_stats,
-        "first_report": reports[-1] if reports else None,
-        "last_report": reports[0] if reports else None
+        "stats": {
+            "total_analyses": total_analyses,
+            "total_reports": total_reports,
+            "registration_date": registration_date,
+            "last_active": last_active,
+            "first_analysis": first_analysis,
+            "last_analysis": last_analysis,
+            "analyses_by_month": analyses_by_month
+        }
     }
 
-
-# ========== ЭКСПОРТ ОТЧЕТОВ ==========
-
-@app.get("/api/reports/{report_id}/export/pdf")
-async def export_report_pdf(request: Request, report_id: str):
-    """
-    Экспорт отчета в PDF через Report Service
-    """
-    check_api_key(request)
-    
-    user_id = get_user_id_from_request(request)
-    if not user_id:
-        raise HTTPException(status_code=400, detail="User ID required (x-user-id header)")
-    
-    report = get_report_by_id(user_id, report_id)
-    if not report:
-        raise HTTPException(status_code=404, detail="Report not found")
-    
-    # Перенаправляем в Report Service для генерации PDF
-    if "report_service" not in SERVICES:
-        raise HTTPException(status_code=503, detail="Report service unavailable")
-    
-    target_url = f"{SERVICES['report_service']}/api/v1/report/generate"
-    
-    try:
-        response = await client.post(
-            target_url,
-            json={
-                "task_id": report_id,
-                "results": report.get("data", {}),
-                "user_id": user_id,
-                "format": "pdf"
-            },
-            timeout=60.0
-        )
-        
-        if response.status_code == 200:
-            pdf_data = response.json()
-            return Response(
-                content=pdf_data.get("content", b""),
-                media_type="application/pdf",
-                headers={
-                    "Content-Disposition": f"attachment; filename=report_{report_id}.pdf"
-                }
-            )
-        else:
-            raise HTTPException(status_code=response.status_code, detail="PDF generation failed")
-            
-    except Exception as e:
-        logger.error(f"PDF export error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# ========== СУЩЕСТВУЮЩИЕ РОУТЫ ==========
 
 @app.get("/health")
 async def health():
@@ -429,8 +424,7 @@ async def routes():
             "GET /api/reports - список отчетов",
             "GET /api/reports/{report_id} - получить отчет",
             "DELETE /api/reports/{report_id} - удалить отчет",
-            "GET /api/reports/stats - статистика",
-            "GET /api/reports/{report_id}/export/pdf - экспорт в PDF"
+            "GET /api/user/stats - статистика пользователя"
         ]
     }
 
