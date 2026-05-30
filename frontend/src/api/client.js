@@ -34,10 +34,11 @@ async function doRefresh(refreshToken) {
 export async function apiFetch(path, options = {}) {
   const store = useAuthStore.getState()
   const { token, refreshToken, setTokens, logout } = store
+  const isFormDataBody = typeof FormData !== 'undefined' && options.body instanceof FormData
 
   const makeHeaders = (activeToken) => ({
-    'Content-Type': 'application/json',
-    ...options.headers,
+    ...(isFormDataBody ? {} : { 'Content-Type': 'application/json' }),
+    ...(options.headers || {}),
     ...(activeToken ? { Authorization: `Bearer ${activeToken}` } : {}),
   })
 

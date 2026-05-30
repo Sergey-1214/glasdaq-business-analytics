@@ -193,6 +193,7 @@ services:
       - .env
     volumes:
       - market-reports-data:/tmp/reports
+      - ./moscow_coffee_shops_data.csv:/app/data/moscow_coffee_shops_data.csv:ro
     depends_on:
       market-db:
         condition: service_healthy

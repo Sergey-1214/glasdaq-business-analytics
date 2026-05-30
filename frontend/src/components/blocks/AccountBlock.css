@@ -168,6 +168,45 @@
   text-overflow: ellipsis;
 }
 
+.account:not(.account--focused) .account__top {
+  align-items: flex-start;
+}
+
+.account:not(.account--focused) .account__name {
+  white-space: normal;
+  line-height: 1.35;
+}
+
+.account:not(.account--focused) .account__field {
+  display: grid;
+  grid-template-columns: 13px 1fr;
+  grid-template-areas:
+    "icon label"
+    "icon value";
+  align-items: start;
+  column-gap: 8px;
+  row-gap: 2px;
+}
+
+.account:not(.account--focused) .account__field-value {
+  grid-area: value;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.account:not(.account--focused) .account__field-icon {
+  grid-area: icon;
+  margin-top: 2px;
+}
+
+.account:not(.account--focused) .account__field-label {
+  grid-area: label;
+  width: auto;
+}
+
 .account__edit-trigger {
   margin-left: auto;
   background: none;

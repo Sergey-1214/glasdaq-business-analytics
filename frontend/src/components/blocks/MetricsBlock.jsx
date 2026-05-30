@@ -5,12 +5,12 @@ import { useDashboardStore } from '../../store/dashboardStore'
 import { buildIdeaTitle, formatIdeaCreatedAt } from '../../utils/ideaPresentation'
 import './MetricsBlock.css'
 
-function fmtMoney(n) {
-  if (!n && n !== 0) return '—'
-  if (n >= 1e12) return `${(n / 1e12).toFixed(1)} трлн`
-  if (n >= 1e9) return `${(n / 1e9).toFixed(1)} млрд`
-  if (n >= 1e6) return `${(n / 1e6).toFixed(0)} млн`
-  return n.toLocaleString('ru-RU')
+function formatMoney(value) {
+  if (!value && value !== 0) return '—'
+  if (value >= 1e12) return `${(value / 1e12).toFixed(1)} трлн`
+  if (value >= 1e9) return `${(value / 1e9).toFixed(1)} млрд`
+  if (value >= 1e6) return `${(value / 1e6).toFixed(0)} млн`
+  return Number(value).toLocaleString('ru-RU')
 }
 
 const TREND_COLORS = {
@@ -19,11 +19,35 @@ const TREND_COLORS = {
   declining: '#f87171',
 }
 
+const TREND_LABELS = {
+  growing: 'Рост',
+  stable: 'Стабильный фон',
+  declining: 'Снижение',
+}
+
+const VERDICT_LABELS = {
+  favorable: 'Благоприятный рынок',
+  neutral: 'Нейтральный рынок',
+  unfavorable: 'Неблагоприятный рынок',
+}
+
+function normalizeTrend(trend) {
+  if (!trend) return '—'
+  return TREND_LABELS[trend] || trend
+}
+
+function normalizeVerdict(verdict) {
+  if (!verdict) return ''
+  return VERDICT_LABELS[verdict] || verdict
+}
+
 function trendColor(trend) {
   if (!trend) return '#6b6f80'
-  const value = trend.toLowerCase()
+  const value = String(trend).toLowerCase()
   if (value.includes('рост') || value.includes('grow') || value.includes('up')) return TREND_COLORS.growing
-  if (value.includes('спад') || value.includes('declin') || value.includes('down')) return TREND_COLORS.declining
+  if (value.includes('сниж') || value.includes('спад') || value.includes('declin') || value.includes('down')) {
+    return TREND_COLORS.declining
+  }
   return TREND_COLORS.stable
 }
 
@@ -45,9 +69,9 @@ function MetricsEntry({ entry, showVerdict = false }) {
   }
 
   const cards = [
-    { icon: DollarSign, label: 'TAM', hint: 'Весь рынок', value: fmtMoney(analysis.tam), color: '#7c6af5' },
-    { icon: Target, label: 'SAM', hint: 'Доступный', value: fmtMoney(analysis.sam), color: '#5b8af5' },
-    { icon: Crosshair, label: 'SOM', hint: 'Реалистичный', value: fmtMoney(analysis.som), color: '#4aaef5' },
+    { icon: DollarSign, label: 'TAM', hint: 'Весь рынок', value: formatMoney(analysis.tam), color: '#7c6af5' },
+    { icon: Target, label: 'SAM', hint: 'Доступный рынок', value: formatMoney(analysis.sam), color: '#5b8af5' },
+    { icon: Crosshair, label: 'SOM', hint: 'Потенциальная доля', value: formatMoney(analysis.som), color: '#4aaef5' },
   ]
 
   return (
@@ -65,7 +89,9 @@ function MetricsEntry({ entry, showVerdict = false }) {
               <span className="metrics__card-label">{label}</span>
               <span className="metrics__card-hint">{hint}</span>
             </div>
-            <div className="metrics__card-value" style={{ color }}>{value}</div>
+            <div className="metrics__card-value" style={{ color }}>
+              {value}
+            </div>
           </div>
         ))}
       </div>
@@ -73,13 +99,11 @@ function MetricsEntry({ entry, showVerdict = false }) {
       <div className="metrics__row">
         <TrendingUp size={13} style={{ color: trendColor(analysis.trend), flexShrink: 0 }} />
         <span className="metrics__trend" style={{ color: trendColor(analysis.trend) }}>
-          {analysis.trend}
+          {normalizeTrend(analysis.trend)}
         </span>
       </div>
 
-      {showVerdict && analysis.verdict && (
-        <div className="metrics__verdict">{analysis.verdict}</div>
-      )}
+      {showVerdict && analysis.verdict && <div className="metrics__verdict">{normalizeVerdict(analysis.verdict)}</div>}
     </div>
   )
 }
@@ -93,9 +117,7 @@ export default function MetricsBlock() {
     return (
       <div className="metrics metrics--empty">
         <Info size={20} className="metrics__empty-icon" />
-        <p className="metrics__empty-text">
-          Введите бизнес-идею в ассистенте — здесь появятся метрики рынка
-        </p>
+        <p className="metrics__empty-text">Введите бизнес-идею в ассистенте, и здесь появятся ключевые метрики рынка.</p>
       </div>
     )
   }

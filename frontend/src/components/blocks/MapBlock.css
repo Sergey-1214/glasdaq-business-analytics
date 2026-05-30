@@ -172,6 +172,7 @@
   text-align: left;
 }
 
+
 @media (max-width: 760px) {
   .map-block__panel {
     width: min(260px, calc(100% - 20px));

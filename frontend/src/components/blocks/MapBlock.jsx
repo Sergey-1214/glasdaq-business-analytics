@@ -15,7 +15,6 @@ function loadMapGlScript() {
 
   const existingScript = document.getElementById(MAPGL_SCRIPT_ID)
   if (existingScript) {
-    // If a previous attempt left a broken script tag behind, replace it.
     if (existingScript.dataset.loadState === 'error') {
       existingScript.remove()
     } else {
@@ -27,7 +26,7 @@ function loadMapGlScript() {
             existingScript.dataset.loadState = 'error'
             reject(new Error('Не удалось загрузить 2GIS MapGL'))
           },
-          { once: true }
+          { once: true },
         )
       })
     }
@@ -93,7 +92,7 @@ function serializeErrorDetails(value) {
 
         return currentValue
       },
-      2
+      2,
     )
   } catch {
     return String(value)
@@ -102,20 +101,18 @@ function serializeErrorDetails(value) {
 
 function extractMapErrorMessage(errorLike) {
   const details = serializeErrorDetails(errorLike)
-
   if (!details) {
     return '2GIS вернул пустую ошибку. Проверьте статус ключа и доступ к Map Tiles API.'
   }
 
   const normalizedDetails = details.toLowerCase()
-
   if (
     normalizedDetails.includes('invalid key') ||
     normalizedDetails.includes('key is invalid') ||
     normalizedDetails.includes('forbidden') ||
     normalizedDetails.includes('unauthorized')
   ) {
-    return 'Ключ 2GIS отклонен. Обычно это значит, что у ключа нет доступа к Map Tiles API, он истек или создан не для карт.'
+    return 'Ключ 2GIS отклонен. Обычно это значит, что у ключа нет доступа к Map Tiles API или он истек.'
   }
 
   if (
@@ -126,22 +123,31 @@ function extractMapErrorMessage(errorLike) {
     return '2GIS отклонил запрос по ограничению Origin/Referer. Для локальной разработки разрешите localhost и localhost:5173.'
   }
 
-  if (
-    normalizedDetails.includes('style') ||
-    normalizedDetails.includes('tile') ||
-    normalizedDetails.includes('mapgl')
-  ) {
-    return `Ошибка 2GIS: ${details}`
+  return details
+}
+
+async function parseApiError(response, fallbackMessage) {
+  try {
+    const json = await response.json()
+    if (typeof json?.detail === 'string') return json.detail
+    if (typeof json?.message === 'string') return json.message
+    if (typeof json?.error === 'string') return json.error
+  } catch {
+    // Ignore JSON parsing issues for errors.
   }
 
-  return details
+  return fallbackMessage
 }
 
 export default function MapBlock() {
   const apiKey = import.meta.env.VITE_2GIS_API_KEY
   const mapContainerRef = useRef(null)
   const cleanupRef = useRef(() => {})
+  const mapRef = useRef(null)
+  const mapglRef = useRef(null)
   const selectedMarkerRef = useRef(null)
+  const competitorMarkersRef = useRef([])
+  const competitorsRef = useRef([])
   const isPickingPointRef = useRef(false)
   const selectedPointRef = useRef(null)
   const selectedPoint = useLocationStore((state) => state.selectedPoint)
@@ -153,6 +159,7 @@ export default function MapBlock() {
   const [selectedCompetitor, setSelectedCompetitor] = useState(null)
   const [competitorsCount, setCompetitorsCount] = useState(0)
   const [isPickingPoint, setIsPickingPoint] = useState(false)
+  const [showCompetitors, setShowCompetitors] = useState(true)
 
   useEffect(() => {
     isPickingPointRef.current = isPickingPoint
@@ -174,30 +181,36 @@ export default function MapBlock() {
         setErrorDetails('')
 
         const response = await apiFetch(
-          `/api/market/api/v1/market-points?region=${encodeURIComponent(DEFAULT_REGION)}&category=${encodeURIComponent(DEFAULT_CATEGORY)}&limit=100`
+          `/api/market/api/v1/market-points?region=${encodeURIComponent(DEFAULT_REGION)}&category=${encodeURIComponent(DEFAULT_CATEGORY)}&limit=500`,
         )
 
         if (!response.ok) {
-          throw new Error('Не удалось загрузить реальные точки конкурентов из market_service.')
+          const detail = await parseApiError(
+            response,
+            'Не удалось загрузить реальные точки конкурентов из market_service.',
+          )
+          throw new Error(detail)
         }
 
         const payload = await response.json()
-        const competitors = (payload?.data || []).map((point) => ({
+        competitorsRef.current = (payload?.data || []).map((point) => ({
           id: point.id,
           name: point.name,
           coordinates: [point.longitude, point.latitude],
         }))
 
-        setCompetitorsCount(competitors.length)
+        setCompetitorsCount(competitorsRef.current.length)
 
         const mapgl = await loadMapGlScript()
         if (isDisposed || !mapContainerRef.current) return
 
+        mapglRef.current = mapgl
         const map = new mapgl.Map(mapContainerRef.current, {
           center: MOSCOW_CENTER,
           zoom: DEFAULT_ZOOM,
           key: apiKey,
         })
+        mapRef.current = map
 
         map.on('styleloaderror', (event) => {
           if (isDisposed) return
@@ -207,9 +220,6 @@ export default function MapBlock() {
           setErrorMessage(extractMapErrorMessage(event))
           setErrorDetails(details)
           console.error('2GIS styleloaderror:', event)
-          if (details) {
-            console.error('2GIS styleloaderror details:', details)
-          }
         })
 
         const ensureSelectedMarker = () => {
@@ -231,21 +241,6 @@ export default function MapBlock() {
           selectedMarker.setCoordinates(selectedPointRef.current)
         }
 
-        const competitorMarkers = competitors.map((competitor) => {
-          const marker = new mapgl.Marker(map, {
-            coordinates: competitor.coordinates,
-            icon: createMarkerIcon('#ff6b57'),
-            size: [34, 44],
-          })
-
-          marker.on('click', () => {
-            setIsPickingPoint(false)
-            setSelectedCompetitor(competitor)
-          })
-
-          return marker
-        })
-
         map.on('click', (event) => {
           if (isPickingPointRef.current) {
             const nextCoordinates = event.lngLat
@@ -262,13 +257,17 @@ export default function MapBlock() {
         })
 
         cleanupRef.current = () => {
+          competitorMarkersRef.current.forEach((marker) => marker.destroy())
+          competitorMarkersRef.current = []
+
           if (selectedMarkerRef.current) {
             selectedMarkerRef.current.destroy()
             selectedMarkerRef.current = null
           }
 
-          competitorMarkers.forEach((marker) => marker.destroy())
           map.destroy()
+          mapRef.current = null
+          mapglRef.current = null
         }
 
         setStatus('ready')
@@ -279,9 +278,6 @@ export default function MapBlock() {
           setErrorMessage(extractMapErrorMessage(error))
           setErrorDetails(details)
           console.error('2GIS map init error:', error)
-          if (details) {
-            console.error('2GIS map init error details:', details)
-          }
         }
       }
     }
@@ -295,9 +291,42 @@ export default function MapBlock() {
     }
   }, [apiKey, setSelectedPoint])
 
+  useEffect(() => {
+    const map = mapRef.current
+    const mapgl = mapglRef.current
+    if (!map || !mapgl) return
+
+    competitorMarkersRef.current.forEach((marker) => marker.destroy())
+    competitorMarkersRef.current = []
+
+    if (!showCompetitors) {
+      setSelectedCompetitor(null)
+      return
+    }
+
+    competitorMarkersRef.current = competitorsRef.current.map((competitor) => {
+      const marker = new mapgl.Marker(map, {
+        coordinates: competitor.coordinates,
+        icon: createMarkerIcon('#ff6b57'),
+        size: [34, 44],
+      })
+
+      marker.on('click', () => {
+        setIsPickingPoint(false)
+        setSelectedCompetitor(competitor)
+      })
+
+      return marker
+    })
+  }, [showCompetitors])
+
   function handlePickPointToggle() {
     setSelectedCompetitor(null)
     setIsPickingPoint((currentValue) => !currentValue)
+  }
+
+  function handleCompetitorsToggle() {
+    setShowCompetitors((currentValue) => !currentValue)
   }
 
   function renderPanelSummary() {
@@ -350,7 +379,7 @@ export default function MapBlock() {
           {status === 'error' && (
             <>
               <strong>Карта не загрузилась</strong>
-              <span>{errorMessage || 'Проверьте API-ключ 2GIS и доступность `mapgl.2gis.com`.'}</span>
+              <span>{errorMessage || 'Проверьте API-ключ 2GIS и доступность mapgl.2gis.com.'}</span>
               {errorDetails && <code className="map-block__error-code">{errorDetails}</code>}
             </>
           )}
@@ -375,6 +404,14 @@ export default function MapBlock() {
           onClick={handlePickPointToggle}
         >
           {isPickingPoint ? 'Отмена выбора' : selectedPoint ? 'Изменить точку' : 'Выбрать точку'}
+        </button>
+
+        <button
+          className={`map-block__action ${showCompetitors ? 'map-block__action--active' : ''}`}
+          type="button"
+          onClick={handleCompetitorsToggle}
+        >
+          {showCompetitors ? 'Скрыть конкурентов' : 'Показать конкурентов'}
         </button>
 
         {isPickingPoint && (

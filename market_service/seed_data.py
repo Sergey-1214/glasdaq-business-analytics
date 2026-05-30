@@ -4,7 +4,9 @@ Run with: python seed_data.py
 """
 from __future__ import annotations
 
+import csv
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -18,6 +20,7 @@ DATABASE_URL = normalize_database_url(
 )
 
 engine = create_engine(DATABASE_URL)
+CSV_DATA_PATH = os.getenv("MARKET_CSV_PATH", "/app/data/moscow_coffee_shops_data.csv")
 
 
 POINTS = [
@@ -101,16 +104,21 @@ POINTS = [
 ]
 
 
-def filter_missing_points(session: Session) -> list[tuple[str, str, float, float, float, dict]]:
+def filter_missing_points(
+    session: Session,
+    *,
+    include_coffee_shops: bool = True,
+) -> list[tuple[str, str, float, float, float, dict]]:
     existing_pairs = {
         (row[0], row[1])
         for row in session.execute(text("SELECT name, category FROM market_points WHERE source = 'seed'")).all()
     }
-    return [point for point in POINTS if (point[0], point[1]) not in existing_pairs]
+    points = POINTS if include_coffee_shops else [point for point in POINTS if point[1] != "coffee_shop"]
+    return [point for point in points if (point[0], point[1]) not in existing_pairs]
 
 
-def seed(session: Session) -> None:
-    points_to_insert = filter_missing_points(session)
+def seed(session: Session, *, include_coffee_shops: bool = True) -> None:
+    points_to_insert = filter_missing_points(session, include_coffee_shops=include_coffee_shops)
     if not points_to_insert:
         print("Seed data already up to date, skipping.")
         return
@@ -203,6 +211,175 @@ def seed(session: Session) -> None:
     print(f"Seeded {len(points_to_insert)} market points.")
 
 
+def _slugify(value: str) -> str:
+    normalized = re.sub(r"[^a-zA-Z0-9а-яА-Я]+", "-", value.strip().lower())
+    normalized = re.sub(r"-{2,}", "-", normalized).strip("-")
+    return normalized or "point"
+
+
+def _to_float(value: str | None) -> float | None:
+    if value in (None, ""):
+        return None
+    return float(str(value).replace(" ", "").replace(",", "."))
+
+
+def _to_int(value: str | None) -> int | None:
+    parsed = _to_float(value)
+    return int(parsed) if parsed is not None else None
+
+
+def csv_file_available() -> bool:
+    return os.path.exists(CSV_DATA_PATH)
+
+
+def csv_rows_to_insert(session: Session) -> list[dict]:
+    existing_ids = {
+        row[0]
+        for row in session.execute(
+            text("SELECT external_id FROM market_points WHERE source = 'csv_moscow'")
+        ).all()
+    }
+
+    with open(CSV_DATA_PATH, "r", encoding="utf-8-sig", newline="") as csv_file:
+        reader = csv.DictReader(csv_file)
+        rows = []
+        for raw_row in reader:
+            latitude = _to_float(raw_row.get("latitude"))
+            longitude = _to_float(raw_row.get("longitude"))
+            if latitude is None or longitude is None:
+                continue
+
+            name = (raw_row.get("name") or "Unknown").strip() or "Unknown"
+            external_id = f"{_slugify(name)}-{latitude:.6f}-{longitude:.6f}"
+            if external_id in existing_ids:
+                continue
+
+            rows.append(
+                {
+                    "external_id": external_id,
+                    "name": name,
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "district": (raw_row.get("district") or "Moscow").strip() or "Moscow",
+                    "rating": _to_float(raw_row.get("rating")),
+                    "distance_to_metro": _to_float(raw_row.get("distance_to_metro")),
+                    "metro_passenger_flow": _to_int(raw_row.get("metro_passenger_flow")),
+                    "public_transport_stops_count": _to_int(raw_row.get("public_transport_stops_count")),
+                    "cafes_300m": _to_int(raw_row.get("cafes_300m")),
+                    "cafes_1km": _to_int(raw_row.get("cafes_1km")),
+                    "average_competitor_rating": _to_float(raw_row.get("average_competitor_rating")),
+                    "population_density": _to_int(raw_row.get("population_density")),
+                    "median_income": _to_int(raw_row.get("median_income")),
+                    "office_density": _to_int(raw_row.get("office_density")),
+                    "average_rent_m2": _to_float(raw_row.get("average_rent_m2")),
+                    "available_commercial_spaces": _to_int(raw_row.get("available_commercial_spaces")),
+                    "pedestrian_traffic_estimate": _to_int(raw_row.get("pedestrian_traffic_estimate")),
+                }
+            )
+
+        return rows
+
+
+def seed_from_csv(session: Session) -> None:
+    if not csv_file_available():
+        print("CSV competitor dataset not found, skipping CSV import.")
+        return
+
+    rows = csv_rows_to_insert(session)
+    if not rows:
+        print("CSV competitor dataset already up to date, skipping.")
+        return
+
+    batch_id = uuid.uuid4()
+    now = datetime.now(timezone.utc)
+
+    session.execute(
+        text(
+            """
+            INSERT INTO ingestion_batches (id, source, region, started_at, finished_at, status, records_received, notes)
+            VALUES (:id, :source, :region, :started_at, :finished_at, :status, :records, :notes)
+            """
+        ),
+        {
+            "id": str(batch_id),
+            "source": "csv_moscow",
+            "region": "Москва",
+            "started_at": now,
+            "finished_at": now,
+            "status": "completed",
+            "records": len(rows),
+            "notes": f"Imported from {os.path.basename(CSV_DATA_PATH)}",
+        },
+    )
+
+    for row in rows:
+        point_id = uuid.uuid4()
+        session.execute(
+            text(
+                """
+                INSERT INTO market_points
+                  (id, batch_id, source, external_id, external_type, name, category, latitude, longitude, rating, raw_tags)
+                VALUES (:id, :batch_id, :source, :ext_id, :ext_type, :name, :category, :lat, :lon, :rating, CAST(:raw_tags AS jsonb))
+                """
+            ),
+            {
+                "id": str(point_id),
+                "batch_id": str(batch_id),
+                "source": "csv_moscow",
+                "ext_id": row["external_id"],
+                "ext_type": "csv_place",
+                "name": row["name"],
+                "category": "coffee_shop",
+                "lat": row["latitude"],
+                "lon": row["longitude"],
+                "rating": row["rating"],
+                "raw_tags": f'{{"district": "{row["district"]}"}}',
+            },
+        )
+
+        session.execute(
+            text(
+                """
+                INSERT INTO market_point_metrics
+                  (id, market_point_id, batch_id,
+                   distance_to_metro, metro_passenger_flow, public_transport_stops_count,
+                   cafes_300m, cafes_1km, average_competitor_rating, population_density,
+                   median_income, office_density, average_rent_m2, average_check,
+                   pedestrian_traffic_estimate, available_commercial_spaces, metrics_source_label)
+                VALUES
+                  (:id, :point_id, :batch_id,
+                   :dist, :flow, :stops,
+                   :c300, :c1km, :comp_rating, :pop_density,
+                   :income, :office, :rent, :check_,
+                   :pedestrian, :avail, :label)
+                """
+            ),
+            {
+                "id": str(uuid.uuid4()),
+                "point_id": str(point_id),
+                "batch_id": str(batch_id),
+                "dist": row["distance_to_metro"],
+                "flow": row["metro_passenger_flow"],
+                "stops": row["public_transport_stops_count"],
+                "c300": row["cafes_300m"],
+                "c1km": row["cafes_1km"],
+                "comp_rating": row["average_competitor_rating"],
+                "pop_density": row["population_density"],
+                "income": row["median_income"],
+                "office": row["office_density"],
+                "rent": row["average_rent_m2"],
+                "check_": None,
+                "pedestrian": row["pedestrian_traffic_estimate"],
+                "avail": row["available_commercial_spaces"],
+                "label": "csv_import",
+            },
+        )
+
+    session.commit()
+    print(f"Imported {len(rows)} coffee shops from CSV dataset.")
+
+
 if __name__ == "__main__":
     with Session(engine) as session:
-        seed(session)
+        seed_from_csv(session)
+        seed(session, include_coffee_shops=not csv_file_available())

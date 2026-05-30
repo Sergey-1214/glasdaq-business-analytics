@@ -13,6 +13,7 @@ COPY seed_data.py ./
 COPY entrypoint.sh ./
 
 RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
+RUN mkdir -p /app/data
 
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
