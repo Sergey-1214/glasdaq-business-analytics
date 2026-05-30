@@ -7,7 +7,7 @@
   border: 1px solid #2a2b3d;
   border-radius: 10px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
-  z-index: 100;
+  z-index: 8000;
   overflow: hidden;
 }
 

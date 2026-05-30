@@ -57,10 +57,12 @@
 .metrics__cards {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .metrics__card {
-  flex: 1;
+  flex: 1 1 calc(50% - 4px);
+  min-width: 0;
   background: #0d0e13;
   border: 1px solid #1e2030;
   border-radius: 8px;
@@ -73,6 +75,7 @@
 .metrics__card-header {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 5px;
 }
 
@@ -86,13 +89,23 @@
 .metrics__card-hint {
   font-size: 9px;
   color: #6b6f80;
-  margin-left: auto;
+  margin-left: 0;
+  width: 100%;
 }
 
 .metrics__card-value {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1;
+  word-break: break-word;
+}
+
+.metrics--focused .metrics__cards {
+  flex-wrap: nowrap;
+}
+
+.metrics--focused .metrics__card {
+  flex: 1 1 0;
 }
 
 .metrics--focused .metrics__card-value {

@@ -2,11 +2,12 @@
   grid-area: topbar;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 16px;
   background: #13141c;
   border-bottom: 1px solid #1e2030;
   position: relative;
-  z-index: 10;
+  z-index: 7000;
 }
 
 .topbar__logo {
@@ -25,38 +26,48 @@
 }
 
 .topbar__center {
-  flex: 1;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   justify-content: center;
-  position: relative;
+  align-items: center;
+  z-index: 7100;
 }
 
 .topbar__workspace-btn {
   background: #1c1d28;
   color: #e2e2e2;
   border: 1px solid #2a2b3d;
-  border-radius: 6px;
-  padding: 6px 20px;
-  font-size: 13px;
+  border-radius: 10px;
+  min-width: 240px;
+  min-height: 42px;
+  padding: 10px 28px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.15s;
 }
 
 .topbar__workspace-btn:hover {
   background: #23243a;
+  border-color: #3a3b55;
+}
+
+.topbar__workspace-btn:active {
+  transform: translateY(1px);
 }
 
 .topbar__right {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.topbar__balance {
-  font-size: 13px;
-  font-weight: 600;
-  color: #e2e2e2;
-  padding-right: 4px;
+  margin-left: auto;
+  position: relative;
+  z-index: 7100;
 }
 
 .topbar__icon-btn {
@@ -86,16 +97,7 @@
 
 .topbar__notif-wrapper {
   position: relative;
-}
-
-.topbar__username {
-  font-size: 13px;
-  color: #9d96c8;
-  padding-right: 4px;
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  z-index: 7200;
 }
 
 @media (max-width: 960px) {
@@ -116,22 +118,19 @@
   }
 
   .topbar__center {
-    justify-content: flex-start;
-    min-width: 0;
+    left: 50%;
+    width: min(320px, calc(100% - 180px));
   }
 
   .topbar__workspace-btn {
-    padding: 6px 12px;
+    min-width: 0;
+    width: 100%;
     max-width: 100%;
+    padding: 9px 16px;
   }
 
   .topbar__right {
-    margin-left: auto;
     min-width: 0;
-  }
-
-  .topbar__balance {
-    display: none;
   }
 }
 
@@ -140,12 +139,17 @@
     padding: 0 10px;
   }
 
-  .topbar__workspace-btn {
-    font-size: 12px;
-    padding: 6px 10px;
+  .topbar__center {
+    position: static;
+    transform: none;
+    flex: 1;
+    justify-content: center;
+    padding: 0 10px;
   }
 
-  .topbar__username {
-    display: none;
+  .topbar__workspace-btn {
+    min-height: 38px;
+    font-size: 12px;
+    padding: 8px 12px;
   }
 }

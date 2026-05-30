@@ -5,18 +5,40 @@ import { apiFetch } from '../../api/client'
 import { useAnalysisStore } from '../../store/analysisStore'
 import { useChatStore } from '../../store/chatStore'
 import { useDashboardStore } from '../../store/dashboardStore'
+import { useLocationStore } from '../../store/locationStore'
 import './AssistantChat.css'
 
 const TREND_LABELS = {
-  growing: 'рост ↑',
-  stable: 'стабильный →',
-  declining: 'снижение ↓',
+  growing: 'рост',
+  stable: 'стабильный',
+  declining: 'снижение',
 }
 
 const VERDICT_LABELS = {
-  favorable: 'Рынок благоприятный — хорошие условия для входа.',
-  neutral: 'Рынок нейтральный — возможен вход при правильном позиционировании.',
-  unfavorable: 'Рынок неблагоприятный — высокая конкуренция или низкий спрос.',
+  favorable: 'Рынок выглядит благоприятно для входа.',
+  neutral: 'Рынок выглядит нейтрально: вход возможен, но позиционирование важно.',
+  unfavorable: 'Рынок выглядит неблагоприятно: конкуренция высокая или спрос ограничен.',
+}
+
+function getPresentationVerdict(analysis) {
+  const location = analysis?.location_assessment
+  const baseVerdict = analysis?.verdict
+
+  if (!location) return baseVerdict
+
+  const score = Number(location.opportunity_score ?? 0)
+  const nearby500m = Number(location.competitors_within_500m ?? 0)
+  const nearby1km = Number(location.competitors_within_1km ?? 0)
+
+  if (score < 45 || nearby500m >= 8 || nearby1km >= 40) {
+    return 'unfavorable'
+  }
+
+  if (score < 65 || nearby500m >= 4 || nearby1km >= 20) {
+    return baseVerdict === 'unfavorable' ? 'unfavorable' : 'neutral'
+  }
+
+  return baseVerdict
 }
 
 function getFontConfig(focused, zone) {
@@ -139,36 +161,100 @@ function AssistantMessage({ id, text, fontConfig }) {
   return <CanvasAnimation id={id} text={text} fontConfig={fontConfig} />
 }
 
-function formatConfirmation(parsed) {
+function formatConfirmation(parsed, hasSelectedPoint) {
   const idea = parsed.normalized_idea || parsed.business_category || 'идея'
-  return `Понял: «${idea}». Анализирую рынок...`
+  return hasSelectedPoint
+    ? `Понял: «${idea}». Проверяю рынок и выбранную точку.`
+    : `Понял: «${idea}». Проверяю рынок.`
+}
+
+function formatMoney(value) {
+  if (!value) return '—'
+  if (value >= 1e9) return `${(value / 1e9).toFixed(1)} млрд ₽`
+  if (value >= 1e6) return `${(value / 1e6).toFixed(0)} млн ₽`
+  return `${value.toLocaleString('ru-RU')} ₽`
+}
+
+function describeLocalCompetition(location) {
+  if (location.competitors_within_500m >= 4) return 'очень плотная'
+  if (location.competitors_within_500m >= 2) return 'заметная'
+  return 'спокойная'
+}
+
+function describeLocationScore(score) {
+  if (score >= 66) return 'точка выглядит сильной'
+  if (score >= 45) return 'точка выглядит средней'
+  return 'точка выглядит слабой'
+}
+
+function formatAnalyticalCompetitors(competitors) {
+  if (!competitors?.length) return null
+
+  if (competitors.length === 1) {
+    const [competitor] = competitors
+    return `В текущей выборке лидирует ${competitor.name}.`
+  }
+
+  const topCompetitors = competitors
+    .slice(0, 3)
+    .map((competitor) => `${competitor.name} (${competitor.share}%)`)
+    .join(', ')
+
+  return `Наиболее сильные конкуренты в этой выборке: ${topCompetitors}.`
+}
+
+function formatLocationAssessment(location) {
+  const lines = []
+  const localCompetition = describeLocalCompetition(location)
+  const scoreLabel = describeLocationScore(location.opportunity_score)
+
+  lines.push('Оценка выбранной точки:')
+  lines.push(`  Координаты: ${location.latitude}, ${location.longitude}`)
+
+  if (location.nearest_competitor_name) {
+    lines.push(
+      `  Ближайший конкурент: ${location.nearest_competitor_name}, ${location.nearest_competitor_distance_m} м`
+    )
+  }
+
+  lines.push(
+    `  Конкурентов рядом: ${location.competitors_within_500m} в радиусе 500 м и ${location.competitors_within_1km} в радиусе 1 км`
+  )
+  lines.push(
+    `  Пешеходный трафик: ${location.pedestrian_traffic_estimate?.toLocaleString('ru-RU') || '—'}`
+  )
+  lines.push(
+    `  Средняя аренда: ${location.average_rent_m2?.toLocaleString('ru-RU') || '—'} ₽/м²`
+  )
+  lines.push(`  Оценка точки: ${location.opportunity_score}/100`)
+  lines.push(
+    `  Кратко: конкуренция ${localCompetition}, и в целом ${scoreLabel}.`
+  )
+
+  return lines
 }
 
 function formatAnalysis(parsed, analysis) {
-  const formatMoney = (value) => {
-    if (!value) return '—'
-    if (value >= 1e9) return `${(value / 1e9).toFixed(1)} млрд ₽`
-    if (value >= 1e6) return `${(value / 1e6).toFixed(0)} млн ₽`
-    return `${value.toLocaleString('ru-RU')} ₽`
-  }
-
   const trend = TREND_LABELS[analysis.trend] ?? analysis.trend
-  const verdict = VERDICT_LABELS[analysis.verdict] ?? analysis.verdict
+  const presentationVerdict = getPresentationVerdict(analysis)
+  const verdict = VERDICT_LABELS[presentationVerdict] ?? presentationVerdict
   const lines = []
 
   lines.push(`Объём рынка (${parsed.region || 'Москва'}):`)
   lines.push(`  Весь рынок (TAM): ${formatMoney(analysis.tam)}`)
-  lines.push(`  Доступный (SAM): ${formatMoney(analysis.sam)}`)
-  lines.push(`  Ваша доля (SOM): ${formatMoney(analysis.som)}`)
+  lines.push(`  Доступный рынок (SAM): ${formatMoney(analysis.sam)}`)
+  lines.push(`  Потенциальная доля (SOM): ${formatMoney(analysis.som)}`)
   lines.push('')
-  lines.push(`Тренд: ${trend}`)
+  lines.push(`Общий фон рынка: ${trend}.`)
 
-  if (analysis.competitors?.length) {
-    const topCompetitors = analysis.competitors
-      .slice(0, 3)
-      .map((competitor) => `${competitor.name} (${competitor.share}%)`)
-      .join(', ')
-    lines.push(`Конкуренты: ${topCompetitors}`)
+  const analyticalCompetitorsLine = formatAnalyticalCompetitors(analysis.competitors)
+  if (analyticalCompetitorsLine) {
+    lines.push(analyticalCompetitorsLine)
+  }
+
+  if (analysis.location_assessment) {
+    lines.push('')
+    lines.push(...formatLocationAssessment(analysis.location_assessment))
   }
 
   lines.push('')
@@ -177,10 +263,19 @@ function formatAnalysis(parsed, analysis) {
   return lines.join('\n')
 }
 
+function buildSelectedLocationPayload(selectedPoint) {
+  if (!selectedPoint) return {}
+  return {
+    selected_latitude: selectedPoint[1],
+    selected_longitude: selectedPoint[0],
+  }
+}
+
 export default function AssistantChat() {
   const { focusedBlockId, zones } = useDashboardStore()
   const { messages, loading, addMessage, updateMessage, setLoading } = useChatStore()
-  const { addEntry, updateEntryAnalysis } = useAnalysisStore()
+  const { addEntry, updateEntryAnalysis, replaceEntry } = useAnalysisStore()
+  const selectedPoint = useLocationStore((state) => state.selectedPoint)
   const isFocused = focusedBlockId === 'assistant'
   const zone = Object.entries(zones).find(([, ids]) => ids.includes('assistant'))?.[0] ?? 'right'
   const fontConfig = useMemo(() => getFontConfig(isFocused, zone), [isFocused, zone])
@@ -191,15 +286,15 @@ export default function AssistantChat() {
   const abortRef = useRef(null)
 
   useEffect(() => {
-    const el = messagesRef.current
-    if (el) el.scrollTop = el.scrollHeight
+    const element = messagesRef.current
+    if (element) element.scrollTop = element.scrollHeight
   }, [messages, loading])
 
   useEffect(() => {
-    const el = inputRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${el.scrollHeight}px`
+    const element = inputRef.current
+    if (!element) return
+    element.style.height = 'auto'
+    element.style.height = `${element.scrollHeight}px`
   }, [input])
 
   async function send() {
@@ -215,57 +310,122 @@ export default function AssistantChat() {
     setLoading(true)
 
     try {
-      const parseRes = await apiFetch('/api/market/api/v1/ideas/parse', {
+      const selectedLocationPayload = buildSelectedLocationPayload(selectedPoint)
+
+      const parseResponse = await apiFetch('/api/market/api/v1/ideas/parse', {
         method: 'POST',
         body: JSON.stringify({ idea: text, region: 'Москва' }),
         signal: controller.signal,
       })
 
-      if (!parseRes.ok) {
+      if (!parseResponse.ok) {
         throw new Error('parse_failed')
       }
 
-      const parseJson = await parseRes.json()
+      const parseJson = await parseResponse.json()
       const parsed = parseJson.data
 
       if ((parsed.confidence ?? 0) < 0.4) {
-        addMessage('assistant', 'Это не похоже на бизнес-идею. Опишите продукт или услугу чуть конкретнее, и я попробую снова.')
+        addMessage(
+          'assistant',
+          'Это не похоже на бизнес-идею. Опишите продукт или услугу чуть конкретнее, и я попробую снова.'
+        )
         return
       }
 
       const ideaText = parsed.normalized_idea || text
-      const entryId = addEntry(ideaText, parsed)
-      const confirmId = addMessage('assistant', formatConfirmation(parsed))
+      const entryId = addEntry(ideaText, parsed, selectedPoint)
+      const confirmId = addMessage('assistant', formatConfirmation(parsed, Boolean(selectedPoint)))
 
-      const analysisRes = await apiFetch('/api/market/api/v1/anal', {
+      const analysisResponse = await apiFetch('/api/market/api/v1/anal', {
         method: 'POST',
-        body: JSON.stringify({ idea: text, region: parsed.region || 'Москва' }),
+        body: JSON.stringify({
+          idea: text,
+          region: parsed.region || 'Москва',
+          ...selectedLocationPayload,
+        }),
         signal: controller.signal,
       })
 
-      if (!analysisRes.ok) {
+      if (!analysisResponse.ok) {
         throw new Error('anal_failed')
       }
 
-      const analysisJson = await analysisRes.json()
+      const analysisJson = await analysisResponse.json()
       const analysis = analysisJson.data
 
       updateEntryAnalysis(entryId, analysis)
       updateMessage(confirmId, formatAnalysis(parsed, analysis))
+
+      try {
+        const saveResponse = await apiFetch('/api/market/ideas', {
+          method: 'POST',
+          body: JSON.stringify({
+            idea: text,
+            region: parsed.region || 'Москва',
+            ...selectedLocationPayload,
+            parsed_payload: {
+              ...parsed,
+              selected_location: selectedPoint
+                ? {
+                    latitude: selectedPoint[1],
+                    longitude: selectedPoint[0],
+                  }
+                : null,
+            },
+            analysis_payload: analysis,
+          }),
+          signal: controller.signal,
+        })
+
+        if (!saveResponse.ok) {
+          throw new Error('save_failed')
+        }
+
+        const saveJson = await saveResponse.json()
+        const savedIdea = saveJson?.data
+        if (savedIdea?.id) {
+          replaceEntry(entryId, {
+            id: savedIdea.id,
+            ideaText: savedIdea.idea_text,
+            parsed: savedIdea.parsed_payload,
+            analysis: savedIdea.analysis_payload,
+            selectedPoint: savedIdea.parsed_payload?.selected_location
+              ? [
+                  savedIdea.parsed_payload.selected_location.longitude,
+                  savedIdea.parsed_payload.selected_location.latitude,
+                ]
+              : selectedPoint,
+            createdAt: savedIdea.created_at,
+          })
+        }
+      } catch (saveError) {
+        console.error('Failed to persist idea after analysis:', saveError)
+        addMessage('assistant', 'Анализ выполнен, но сохранить его в историю пока не удалось.')
+      }
     } catch (error) {
       if (error.name === 'AbortError') return
 
       if (error.message === 'parse_failed') {
-        addMessage('assistant', 'Не удалось распознать идею. Попробуйте описать продукт или услугу чуть подробнее.')
+        addMessage(
+          'assistant',
+          'Не удалось распознать идею. Попробуйте описать продукт или услугу чуть подробнее.'
+        )
         return
       }
 
       if (error.message === 'anal_failed') {
-        addMessage('assistant', 'Идея распознана, но анализ рынка сейчас не ответил. Попробуйте повторить запрос чуть позже.')
+        addMessage(
+          'assistant',
+          'Идея распознана, но анализ рынка сейчас не ответил. Попробуйте повторить запрос чуть позже.'
+        )
         return
       }
 
-      addMessage('assistant', 'Не удалось выполнить анализ. Проверьте подключение к сервису или попробуйте позже.')
+      addMessage(
+        'assistant',
+        'Не удалось выполнить анализ. Проверьте подключение к сервису или попробуйте позже.'
+      )
     } finally {
       if (abortRef.current === controller) {
         abortRef.current = null
@@ -274,9 +434,9 @@ export default function AssistantChat() {
     }
   }
 
-  function onKeyDown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
+  function onKeyDown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
       send()
     }
   }
@@ -284,15 +444,15 @@ export default function AssistantChat() {
   return (
     <div className={`chat chat--${zone} ${isFocused ? 'chat--focused' : ''}`}>
       <div className="chat__messages" ref={messagesRef}>
-        {messages.map((msg) =>
-          msg.role === 'user' ? (
-            <div key={msg.id} className="chat__row chat__row--user">
-              <div className="chat__bubble chat__bubble--user">{msg.text}</div>
+        {messages.map((message) =>
+          message.role === 'user' ? (
+            <div key={message.id} className="chat__row chat__row--user">
+              <div className="chat__bubble chat__bubble--user">{message.text}</div>
             </div>
           ) : (
-            <div key={msg.id} className="chat__row chat__row--assistant">
+            <div key={message.id} className="chat__row chat__row--assistant">
               <div className="chat__bubble chat__bubble--assistant">
-                <AssistantMessage id={msg.id} text={msg.text} fontConfig={fontConfig} />
+                <AssistantMessage id={message.id} text={message.text} fontConfig={fontConfig} />
               </div>
             </div>
           ),
@@ -307,13 +467,13 @@ export default function AssistantChat() {
         )}
       </div>
 
-      <div className="chat__input-area" onPointerDown={(e) => e.stopPropagation()}>
+      <div className="chat__input-area" onPointerDown={(event) => event.stopPropagation()}>
         <textarea
           ref={inputRef}
           className="chat__input"
           placeholder="Опишите бизнес-идею..."
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(event) => setInput(event.target.value)}
           onKeyDown={onKeyDown}
           rows={1}
           disabled={loading}

@@ -59,33 +59,40 @@ def create_safe_session(retries=10, backoff_factor=2):
     session.mount('https://', adapter)
     return session
 
-def safe_overpass_request(query: str, retries: int = 3, delay: int = 2) -> dict:
-    urls = [
-        "https://overpass-api.de/api/interpreter",
-        "https://overpass.kumi.systems/api/interpreter",
-        "https://overpass.openstreetmap.fr/api/interpreter"
-    ]
+def safe_overpass_request(query: str, retries: int = 3, delay: int = 10) -> dict:
+    url = "https://overpass-api.de/api/interpreter"
     
-    for url in urls:
-        for attempt in range(retries):
-            try:
-                print(f"попытка {url}")
-                resp = requests.get(
-                    url,
-                    params={"data": query},
-                    headers={"Accept": "application/json"},
-                    timeout=60
-                )
-                resp.raise_for_status()
-                
-                if resp.text and resp.text.strip():
-                    return resp.json()
-                    
-            except Exception as e:
-                print(f"ошибка: {e}")
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Referer': 'https://overpass-turbo.eu/',
+        'Origin': 'https://overpass-turbo.eu'
+    }
+    
+    for attempt in range(retries):
+        try:
+            print(f"Попытка {attempt+1}/{retries}")
+            response = requests.post(url, data=query, headers=headers, timeout=90)
             
-            time.sleep(delay)
-        time.sleep(3)
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code == 429:
+                print("Слишком много запросов. Ждём 60 секунд...")
+                time.sleep(60)
+            else:
+                print(f"HTTP {response.status_code}: {response.text[:200]}")
+                
+        except requests.exceptions.Timeout:
+            print(f"Таймаут (попытка {attempt+1})")
+        except Exception as e:
+            print(f"Ошибка: {e}")
+        
+        # Увеличиваем задержку между попытками
+        time.sleep(delay * (attempt + 1))
     
     return None
 
@@ -134,12 +141,25 @@ def get_moscow_coffee_shops():
                     
                 tags = element.get('tags', {})
                 
+                # Получаем название из разных тегов
+                name = tags.get('name', '')
+                if not name:
+                    name = tags.get('alt_name', '')
+                if not name:
+                    name = tags.get('short_name', '')
+                if not name:
+                    name = tags.get('brand', '')
+                if not name:
+                    name = 'Unknown'
+                
                 shop_info = {
                     'latitude': lat,
                     'longitude': lon,
-                    'name': tags.get('name', 'Unknown'),
+                    'name': name,
                     'rating': tags.get('rating', np.nan),
-                    'osm_id': element.get('id')
+                    'osm_id': element.get('id'),
+                    'addr': tags.get('addr:full', ''),
+                    'category': tags.get('amenity', tags.get('shop', ''))
                 }
                 
                 all_shops.append(shop_info)
@@ -155,7 +175,16 @@ def get_moscow_coffee_shops():
             unique_shops[key] = shop
     
     print(f"Уникальных точек: {len(unique_shops)}")
-    return pd.DataFrame(list(unique_shops.values()))
+    
+    # Выводим примеры названий
+    df = pd.DataFrame(list(unique_shops.values()))
+    named_count = df[df['name'] != 'Unknown'].shape[0]
+    print(f"Точек с названиями: {named_count}/{len(df)}")
+    print("Примеры названий:")
+    for i in range(min(5, len(df))):
+        print(f"  {df.iloc[i]['name']} ({df.iloc[i]['category']})")
+    
+    return df
 
 def safe_mosru_request(url, params=None, max_retries=2):
     session = create_safe_session()
@@ -345,6 +374,7 @@ def main():
         return None
     
     print(f"Найдено {len(coffee_df)} кофеен")
+    print(f"Колонки в данных: {list(coffee_df.columns)}")
     
     print("Получение данных метро...")
     metro_df = get_metro_passenger_flow_from_mosru()
@@ -405,6 +435,7 @@ def main():
     coffee_df['district'] = 'Moscow'
     
     output_columns = [
+        'name',
         'latitude', 'longitude', 'district',
         'pedestrian_traffic_estimate',
         'metro_passenger_flow',
@@ -423,56 +454,23 @@ def main():
     
     final_df = coffee_df[output_columns]
     
+    # Сохраняем в CSV
     final_df.to_csv('moscow_coffee_shops_data.csv', index=False, encoding='utf-8-sig')
+    print(f"Данные сохранены в moscow_coffee_shops_data.csv")
+    
+    # Выводим первые 5 названий для проверки
+    print("\nПримеры собранных названий:")
+    for i in range(min(5, len(final_df))):
+        print(f"  {i+1}. {final_df.iloc[i]['name']}")
     
     print("Отправка данных в API...")
     api_url = "http://localhost:8000/api/v1/ingest/coffee-shops"
     send_result = send_to_api(final_df, api_url)
     print(f"Результат отправки: {send_result}")
     
-    print(f"Данные сохранены в moscow_coffee_shops_data.csv")
     print(f"Всего собрано {len(final_df)} точек")
     
     return final_df
-
-def send_to_api(df: pd.DataFrame, api_url: str, batch_size: int = 100) -> dict:
-    """Отправляет данные в API пачками"""
-    import requests
-    
-    total = len(df)
-    success = 0
-    failed = 0
-    
-    df_clean = df.where(pd.notnull(df), None)
-    records = df_clean.to_dict(orient='records')
-    
-    print(f"Отправка {total} записей в {api_url}")
-    
-    for i in range(0, total, batch_size):
-        batch = records[i:i+batch_size]
-        
-        try:
-            resp = requests.post(
-                api_url,
-                json=batch,
-                headers={'Content-Type': 'application/json'},
-                timeout=30
-            )
-            
-            if resp.status_code == 200 or resp.status_code == 201:
-                success += len(batch)
-                print(f"Пачка {i//batch_size + 1}: отправлено {len(batch)} записей")
-            else:
-                failed += len(batch)
-                print(f"Ошибка пачки {i//batch_size + 1}: {resp.status_code}")
-                
-        except Exception as e:
-            failed += len(batch)
-            print(f"Ошибка отправки: {e}")
-        
-        time.sleep(0.5)
-    
-    return {'total': total, 'success': success, 'failed': failed}
 
 if __name__ == "__main__":
     df = main()

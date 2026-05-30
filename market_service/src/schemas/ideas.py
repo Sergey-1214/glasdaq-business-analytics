@@ -12,6 +12,10 @@ from .idea_parser import IdeaParseResponseData
 class IdeaCreateRequest(BaseModel):
     idea: str = Field(min_length=3)
     region: str | None = None
+    selected_latitude: float | None = None
+    selected_longitude: float | None = None
+    parsed_payload: IdeaParseResponseData | None = None
+    analysis_payload: AnalysisResponseData | None = None
 
 
 class IdeaResponseData(BaseModel):

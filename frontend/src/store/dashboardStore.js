@@ -1,20 +1,19 @@
 import { create } from 'zustand'
 
 export const BLOCK_REGISTRY = [
-  { id: 'map',       title: 'Карта',           zone: 'center', icon: '⊕' },
-  { id: 'assistant', title: 'Ассистент',        zone: 'right',  icon: '◆' },
-  { id: 'charts',    title: 'Графики',          zone: 'bottom', icon: '∿' },
-  { id: 'reports',   title: 'Отчёты',           zone: 'bottom', icon: '≡' },
-  { id: 'metrics',   title: 'Метрики',          zone: 'bottom', icon: '▦' },
-  { id: 'account',   title: 'Аккаунт',          zone: 'left',   icon: '◉' },
-  { id: 'actions',   title: 'Быстрые действия', zone: 'left',   icon: '▶' },
+  { id: 'map', title: 'Карта', zone: 'center', icon: '⊕' },
+  { id: 'assistant', title: 'Ассистент', zone: 'right', icon: '◆' },
+  { id: 'charts', title: 'Графики', zone: 'bottom', icon: '∿' },
+  { id: 'reports', title: 'Отчеты', zone: 'bottom', icon: '≡' },
+  { id: 'metrics', title: 'Метрики', zone: 'bottom', icon: '▦' },
+  { id: 'account', title: 'Аккаунт', zone: 'left', icon: '◉' },
 ]
 
 export const useDashboardStore = create((set, get) => ({
   zones: {
-    left:   ['account', 'actions'],
+    left: ['account'],
     center: ['map'],
-    right:  ['assistant'],
+    right: ['assistant'],
     bottom: ['charts', 'reports', 'metrics'],
   },
 
@@ -22,61 +21,64 @@ export const useDashboardStore = create((set, get) => ({
 
   isActive: (id) => {
     const { zones } = get()
-    return Object.values(zones).some((arr) => arr.includes(id))
+    return Object.values(zones).some((ids) => ids.includes(id))
   },
 
-  toggleBlock: (id, targetZone = null) => set((state) => {
-    const currentZone = Object.entries(state.zones)
-      .find(([, ids]) => ids.includes(id))?.[0]
+  toggleBlock: (id, targetZone = null) =>
+    set((state) => {
+      const currentZone = Object.entries(state.zones).find(([, ids]) => ids.includes(id))?.[0]
 
-    if (currentZone) {
+      if (currentZone) {
+        return {
+          zones: {
+            ...state.zones,
+            [currentZone]: state.zones[currentZone].filter((blockId) => blockId !== id),
+          },
+          focusedBlockId: state.focusedBlockId === id ? null : state.focusedBlockId,
+        }
+      }
+
+      let addToZone
+      if (targetZone) {
+        addToZone = targetZone
+      } else {
+        const candidates = ['left', 'right', 'bottom']
+        addToZone = candidates.reduce((minZone, zone) =>
+          state.zones[zone].length < state.zones[minZone].length ? zone : minZone,
+        )
+      }
+
       return {
         zones: {
           ...state.zones,
-          [currentZone]: state.zones[currentZone].filter((b) => b !== id),
+          [addToZone]: [...state.zones[addToZone], id],
         },
-        focusedBlockId: state.focusedBlockId === id ? null : state.focusedBlockId,
       }
-    }
+    }),
 
-    let addToZone
-    if (targetZone) {
-      addToZone = targetZone
-    } else {
-      const candidates = ['left', 'right', 'bottom']
-      addToZone = candidates.reduce((min, z) =>
-        state.zones[z].length < state.zones[min].length ? z : min
-      )
-    }
+  reorderZone: (zone, oldIndex, newIndex) =>
+    set((state) => {
+      const nextItems = [...state.zones[zone]]
+      const [item] = nextItems.splice(oldIndex, 1)
+      nextItems.splice(newIndex, 0, item)
+      return { zones: { ...state.zones, [zone]: nextItems } }
+    }),
 
-    return {
-      zones: {
-        ...state.zones,
-        [addToZone]: [...state.zones[addToZone], id],
-      },
-    }
-  }),
+  moveBlock: (id, fromZone, toZone, toIndex) =>
+    set((state) => {
+      const fromItems = state.zones[fromZone].filter((blockId) => blockId !== id)
+      const toItems = [...state.zones[toZone]]
+      const insertAt = toIndex >= 0 ? toIndex : toItems.length
+      toItems.splice(insertAt, 0, id)
 
-  reorderZone: (zone, oldIndex, newIndex) => set((state) => {
-    const arr = [...state.zones[zone]]
-    const [item] = arr.splice(oldIndex, 1)
-    arr.splice(newIndex, 0, item)
-    return { zones: { ...state.zones, [zone]: arr } }
-  }),
-
-  moveBlock: (id, fromZone, toZone, toIndex) => set((state) => {
-    const fromArr = state.zones[fromZone].filter((b) => b !== id)
-    const toArr = [...state.zones[toZone]]
-    const insertAt = toIndex >= 0 ? toIndex : toArr.length
-    toArr.splice(insertAt, 0, id)
-    return {
-      zones: {
-        ...state.zones,
-        [fromZone]: fromArr,
-        [toZone]: toArr,
-      },
-    }
-  }),
+      return {
+        zones: {
+          ...state.zones,
+          [fromZone]: fromItems,
+          [toZone]: toItems,
+        },
+      }
+    }),
 
   setFocus: (id) => set({ focusedBlockId: id }),
   clearFocus: () => set({ focusedBlockId: null }),

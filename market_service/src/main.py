@@ -5,7 +5,14 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.exceptions import AppError
-from src.routes import analysis_router, health_router, idea_parser_router, ideas_router, ingestion_router
+from src.routes import (
+    analysis_router,
+    health_router,
+    idea_parser_router,
+    ideas_router,
+    ingestion_router,
+    market_points_router,
+)
 from src.schemas import ErrorResponse
 
 
@@ -55,3 +62,4 @@ app.include_router(health_router)
 app.include_router(idea_parser_router)
 app.include_router(ingestion_router)
 app.include_router(ideas_router)
+app.include_router(market_points_router)

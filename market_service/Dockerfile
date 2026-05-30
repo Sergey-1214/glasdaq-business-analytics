@@ -3,7 +3,8 @@ FROM python:3.11-slim
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN sed '/^[[:space:]]*$/q' requirements.txt | sed '/^[[:space:]]*$/d' > requirements.runtime.txt \
+    && pip install --no-cache-dir --default-timeout=120 -r requirements.runtime.txt
 
 COPY src/ ./src/
 COPY alembic.ini ./
@@ -12,6 +13,7 @@ COPY seed_data.py ./
 COPY entrypoint.sh ./
 
 RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
+RUN mkdir -p /app/data
 
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser

@@ -6,6 +6,12 @@ from sqlalchemy.orm import Session
 from src.db.models import IngestionBatch, MarketPoint, MarketPointMetric, MetroStation
 
 
+REGION_ALIASES = {
+    "moscow": {"moscow", "москва"},
+    "москва": {"moscow", "москва"},
+}
+
+
 class AnalysisRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -23,6 +29,7 @@ class AnalysisRepository:
         )
 
         normalized_region = region.strip().lower()
+        accepted_regions = REGION_ALIASES.get(normalized_region, {normalized_region})
 
         query = (
             select(MarketPoint, MarketPointMetric)
@@ -33,7 +40,7 @@ class AnalysisRepository:
         )
 
         if normalized_region:
-            query = query.where(func.lower(IngestionBatch.region) == normalized_region)
+            query = query.where(func.lower(IngestionBatch.region).in_(accepted_regions))
 
         return list(self.db.execute(query).all())
 
@@ -43,6 +50,7 @@ class AnalysisRepository:
         station_hint: str,
     ) -> tuple[float, float] | None:
         normalized_region = (region or "").strip().lower()
+        accepted_regions = REGION_ALIASES.get(normalized_region, {normalized_region}) if normalized_region else set()
         normalized_hint = (station_hint or "").strip().lower()
         if not normalized_hint:
             return None
@@ -55,7 +63,7 @@ class AnalysisRepository:
             .order_by(MetroStation.created_at.desc())
         )
         if normalized_region:
-            query = query.where(func.lower(IngestionBatch.region) == normalized_region)
+            query = query.where(func.lower(IngestionBatch.region).in_(accepted_regions))
 
         row = self.db.execute(query).first()
         if row is None:

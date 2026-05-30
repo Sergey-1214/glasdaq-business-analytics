@@ -32,6 +32,7 @@ class IdeaParseResponseData(BaseModel):
     confidence: float = 0.0
     parser_source: str | None = None
     processing_time_ms: int | None = None
+    selected_location: dict | None = None
 
     @field_validator('target_audience', 'location_preferences', 'keywords', 'constraints', mode='before')
     @classmethod
