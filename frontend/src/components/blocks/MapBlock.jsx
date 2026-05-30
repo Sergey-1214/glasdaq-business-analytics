@@ -15,14 +15,22 @@ function loadMapGlScript() {
 
   const existingScript = document.getElementById(MAPGL_SCRIPT_ID)
   if (existingScript) {
-    return new Promise((resolve, reject) => {
-      existingScript.addEventListener('load', () => resolve(window.mapgl), { once: true })
-      existingScript.addEventListener(
-        'error',
-        () => reject(new Error('Не удалось загрузить 2GIS MapGL')),
-        { once: true }
-      )
-    })
+    // If a previous attempt left a broken script tag behind, replace it.
+    if (existingScript.dataset.loadState === 'error') {
+      existingScript.remove()
+    } else {
+      return new Promise((resolve, reject) => {
+        existingScript.addEventListener('load', () => resolve(window.mapgl), { once: true })
+        existingScript.addEventListener(
+          'error',
+          () => {
+            existingScript.dataset.loadState = 'error'
+            reject(new Error('Не удалось загрузить 2GIS MapGL'))
+          },
+          { once: true }
+        )
+      })
+    }
   }
 
   return new Promise((resolve, reject) => {
@@ -30,8 +38,14 @@ function loadMapGlScript() {
     script.id = MAPGL_SCRIPT_ID
     script.src = MAPGL_SCRIPT_SRC
     script.async = true
-    script.onload = () => resolve(window.mapgl)
-    script.onerror = () => reject(new Error('Не удалось загрузить 2GIS MapGL'))
+    script.onload = () => {
+      script.dataset.loadState = 'loaded'
+      resolve(window.mapgl)
+    }
+    script.onerror = () => {
+      script.dataset.loadState = 'error'
+      reject(new Error('Не удалось загрузить 2GIS MapGL'))
+    }
     document.head.appendChild(script)
   })
 }

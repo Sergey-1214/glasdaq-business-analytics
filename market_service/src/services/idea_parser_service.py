@@ -43,7 +43,6 @@ class IdeaParserService:
             logger.warning("Idea parser fallback activated due to external parser error: %s", exc)
             fallback = self._build_fallback_parse(payload, source="fallback_external")
             fallback.processing_time_ms = self._elapsed_ms(started_at)
-            self._cache_put(cache_key, fallback)
             return IdeaParseResponse(data=fallback)
 
         try:
@@ -54,7 +53,8 @@ class IdeaParserService:
             parsed = self._build_fallback_parse(payload, source="fallback_validation")
 
         parsed.processing_time_ms = self._elapsed_ms(started_at)
-        self._cache_put(cache_key, parsed)
+        if parsed.confidence >= 0.4 and parsed.parser_source not in {"fallback_external", "fallback_validation"}:
+            self._cache_put(cache_key, parsed)
         return IdeaParseResponse(data=parsed)
 
     def _build_prompt(self, payload: IdeaParseRequest) -> str:
@@ -140,6 +140,13 @@ Region: {region_line}
         if any(token in normalized_text for token in ("студент", "молодеж")):
             target_audience.append("студенты и молодая аудитория")
 
+        confidence = 0.72 if category != "other" else 0.35
+        if category in {"Кофейня", "Столовая", "Ресторан", "Доставка еды"} and any(
+            token in normalized_text
+            for token in ("район", "локац", "точк", "открыть", "студент", "метро", "рядом")
+        ):
+            confidence = max(confidence, 0.78)
+
         return IdeaParseResponseData(
             language="ru",
             normalized_idea=idea_text[:160],
@@ -157,13 +164,14 @@ Region: {region_line}
             constraints=[],
             customer_problem=None,
             keywords=self._extract_keywords(normalized_text),
-            confidence=0.72 if category != "other" else 0.35,
+            confidence=confidence,
             parser_source=source,
         )
 
     def _infer_category(self, normalized_text: str) -> str:
         category_aliases = (
             ("Кофейня", ("кофейня", "кофе", "specialty", "cafe", "coffee")),
+            ("Столовая", ("столовая", "canteen", "cafeteria", "food court", "буфет")),
             ("Доставка еды", ("доставка еды", "доставка", "delivery", "dark kitchen")),
             ("Ресторан", ("ресторан", "restaurant", "бистро")),
             ("Фитнес", ("фитнес", "спортзал", "gym", "fitness")),
@@ -197,6 +205,9 @@ Region: {region_line}
             ("specialty", "specialty"),
             ("кофе", "кофе"),
             ("кофейня", "кофейня"),
+            ("столов", "столовая"),
+            ("студент", "студенты"),
+            ("район", "район"),
             ("офис", "офисы"),
         ]
         return [label for token, label in candidates if token in normalized_text][:8]

@@ -116,7 +116,7 @@ export default function ReportsBlock() {
             id="reports-idea-select"
             className="reports__select"
             value={effectiveSelectedEntryId ?? ''}
-            onChange={(e) => setSelectedEntryId(Number(e.target.value))}
+            onChange={(e) => setSelectedEntryId(e.target.value)}
           >
             {readyEntries.map((entry) => (
               <option key={entry.id} value={entry.id}>

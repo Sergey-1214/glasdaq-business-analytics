@@ -252,7 +252,7 @@ function buildSelectedLocationPayload(selectedPoint) {
 export default function AssistantChat() {
   const { focusedBlockId, zones } = useDashboardStore()
   const { messages, loading, addMessage, updateMessage, setLoading } = useChatStore()
-  const { addEntry, updateEntryAnalysis } = useAnalysisStore()
+  const { addEntry, updateEntryAnalysis, replaceEntry } = useAnalysisStore()
   const selectedPoint = useLocationStore((state) => state.selectedPoint)
   const isFocused = focusedBlockId === 'assistant'
   const zone = Object.entries(zones).find(([, ids]) => ids.includes('assistant'))?.[0] ?? 'right'
@@ -358,6 +358,24 @@ export default function AssistantChat() {
 
         if (!saveResponse.ok) {
           throw new Error('save_failed')
+        }
+
+        const saveJson = await saveResponse.json()
+        const savedIdea = saveJson?.data
+        if (savedIdea?.id) {
+          replaceEntry(entryId, {
+            id: savedIdea.id,
+            ideaText: savedIdea.idea_text,
+            parsed: savedIdea.parsed_payload,
+            analysis: savedIdea.analysis_payload,
+            selectedPoint: savedIdea.parsed_payload?.selected_location
+              ? [
+                  savedIdea.parsed_payload.selected_location.longitude,
+                  savedIdea.parsed_payload.selected_location.latitude,
+                ]
+              : selectedPoint,
+            createdAt: savedIdea.created_at,
+          })
         }
       } catch (saveError) {
         console.error('Failed to persist idea after analysis:', saveError)

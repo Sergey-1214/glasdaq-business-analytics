@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -9,6 +9,10 @@ import {
   useSensors,
 } from '@dnd-kit/core'
 import { useDashboardStore, BLOCK_REGISTRY } from './store/dashboardStore'
+import { useAuthStore } from './store/authStore'
+import { useAnalysisStore } from './store/analysisStore'
+import { useLocationStore } from './store/locationStore'
+import { apiFetch } from './api/client'
 import TopBar from './components/layout/TopBar'
 import LeftSidebar from './components/layout/LeftSidebar'
 import RightSidebar from './components/layout/RightSidebar'
@@ -32,6 +36,21 @@ const BLOCK_CONTENT = {
 }
 
 const DROPPABLE_ZONES = ['left', 'right', 'bottom']
+
+function mapIdeaResponseToEntry(idea) {
+  const selectedLocation = idea.parsed_payload?.selected_location
+
+  return {
+    id: idea.id,
+    ideaText: idea.idea_text,
+    parsed: idea.parsed_payload,
+    analysis: idea.analysis_payload,
+    selectedPoint: selectedLocation
+      ? [selectedLocation.longitude, selectedLocation.latitude]
+      : null,
+    createdAt: idea.created_at,
+  }
+}
 
 function collisionDetection(args) {
   const pointerCollisions = pointerWithin(args)
@@ -73,6 +92,11 @@ function FocusArea() {
 
 export default function App() {
   const { zones, focusedBlockId, reorderZone, moveBlock } = useDashboardStore()
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const hydrateEntries = useAnalysisStore((state) => state.hydrateEntries)
+  const clearAnalysis = useAnalysisStore((state) => state.clear)
+  const setSelectedPoint = useLocationStore((state) => state.setSelectedPoint)
+  const clearSelectedPoint = useLocationStore((state) => state.clearSelectedPoint)
   const isFocusMode = focusedBlockId !== null
 
   const [activeId, setActiveId] = useState(null)
@@ -148,6 +172,54 @@ export default function App() {
   const activeBlock = activeId
     ? BLOCK_REGISTRY.find((b) => b.id === activeId)
     : null
+
+  useEffect(() => {
+    let isCancelled = false
+
+    async function loadSavedIdeas() {
+      if (!isAuthenticated) {
+        clearAnalysis()
+        clearSelectedPoint()
+        return
+      }
+
+      try {
+        const response = await apiFetch('/api/market/ideas/me')
+        if (!response.ok) {
+          throw new Error(`Failed to load ideas: ${response.status}`)
+        }
+
+        const payload = await response.json()
+        if (isCancelled) return
+
+        const entries = (payload?.data || []).map(mapIdeaResponseToEntry).reverse()
+        hydrateEntries(entries)
+
+        const latestPoint = entries[entries.length - 1]?.selectedPoint ?? null
+        if (latestPoint) {
+          setSelectedPoint(latestPoint)
+        } else {
+          clearSelectedPoint()
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          console.error('Failed to hydrate saved ideas from backend:', error)
+        }
+      }
+    }
+
+    loadSavedIdeas()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [
+    clearAnalysis,
+    clearSelectedPoint,
+    hydrateEntries,
+    isAuthenticated,
+    setSelectedPoint,
+  ])
 
   return (
     <DndContext

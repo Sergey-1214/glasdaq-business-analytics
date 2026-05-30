@@ -24,6 +24,31 @@ export const useAnalysisStore = create((set) => ({
     analysis,
   })),
 
+  hydrateEntries: (entries) => set(() => {
+    const normalizedEntries = [...entries]
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+
+    const latestEntry = normalizedEntries[normalizedEntries.length - 1] ?? null
+
+    return {
+      entries: normalizedEntries,
+      parsed: latestEntry?.parsed ?? null,
+      analysis: latestEntry?.analysis ?? null,
+      preparedReports: [],
+    }
+  }),
+
+  replaceEntry: (id, nextEntry) => set((state) => {
+    const nextEntries = state.entries.map((entry) => (entry.id === id ? nextEntry : entry))
+    const latestEntry = nextEntries[nextEntries.length - 1] ?? null
+
+    return {
+      entries: nextEntries,
+      parsed: latestEntry?.parsed ?? state.parsed,
+      analysis: latestEntry?.analysis ?? state.analysis,
+    }
+  }),
+
   setParsed: (parsed) => set({ parsed }),
   setAnalysis: (analysis) => set({ analysis }),
 
