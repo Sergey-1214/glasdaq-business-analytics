@@ -95,13 +95,20 @@ export default function ReportsBlock() {
     [entries, reports],
   )
 
-  const effectiveSelectedEntryId = readyEntries.some((entry) => String(entry.id) === String(selectedEntryId))
-    ? selectedEntryId
-    : readyEntries[0]?.id ?? null
+  const availableEntries = useMemo(
+    () => readyEntries.filter((entry) => !reportsByIdeaId.has(String(entry.id))),
+    [readyEntries, reportsByIdeaId],
+  )
 
-  const selectedEntry = readyEntries.find((entry) => String(entry.id) === String(effectiveSelectedEntryId)) ?? null
+  const effectiveSelectedEntryId = availableEntries.some((entry) => String(entry.id) === String(selectedEntryId))
+    ? selectedEntryId
+    : availableEntries[0]?.id ?? null
+
+  const selectedEntry =
+    availableEntries.find((entry) => String(entry.id) === String(effectiveSelectedEntryId)) ?? null
   const selectedPrepared = selectedEntry ? reportsByIdeaId.get(String(selectedEntry.id)) ?? null : null
   const selectedEntryPersisted = typeof selectedEntry?.id === 'string'
+  const visiblePreparedEntries = isFocused ? preparedEntries : preparedEntries.slice(0, 1)
 
   useEffect(() => {
     let isCancelled = false
@@ -246,18 +253,23 @@ export default function ReportsBlock() {
             className="reports__select"
             value={effectiveSelectedEntryId ?? ''}
             onChange={(event) => setSelectedEntryId(event.target.value)}
+            disabled={!availableEntries.length}
           >
-            {readyEntries.map((entry) => (
-              <option key={entry.id} value={entry.id}>
-                {buildReportTitle(entry)}
-              </option>
-            ))}
+            {!availableEntries.length ? (
+              <option value="">Все доступные идеи уже оформлены в отчеты</option>
+            ) : (
+              availableEntries.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {buildReportTitle(entry)}
+                </option>
+              ))
+            )}
           </select>
         </div>
 
         {reportsError && <div className="reports__status reports__status--muted">{reportsError}</div>}
 
-        {selectedEntry && (
+        {selectedEntry ? (
           <div className="reports__summary">
             <div className="reports__summary-title">{buildReportTitle(selectedEntry)}</div>
             <div className="reports__summary-meta">
@@ -277,6 +289,12 @@ export default function ReportsBlock() {
             ) : (
               <div className="reports__status reports__status--muted">Для этой идеи еще нет серверного отчета.</div>
             )}
+          </div>
+        ) : (
+          <div className="reports__summary">
+            <div className="reports__status reports__status--muted">
+              Все сохраненные идеи уже имеют подготовленный отчет.
+            </div>
           </div>
         )}
       </div>
@@ -304,7 +322,7 @@ export default function ReportsBlock() {
           </div>
         ) : (
           <div className="reports__list">
-            {preparedEntries.map((report) => (
+            {visiblePreparedEntries.map((report) => (
               <div key={report.id} className="reports__item">
                 <div className="reports__item-main">
                   <div className="reports__item-title">{buildReportTitle(report.entry)}</div>

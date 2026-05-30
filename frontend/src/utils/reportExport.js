@@ -10,6 +10,27 @@ const VERDICT_LABELS = {
   unfavorable: 'Неблагоприятный',
 }
 
+function getPresentationVerdict(analysis) {
+  const location = analysis?.location_assessment
+  const baseVerdict = analysis?.verdict
+
+  if (!location) return baseVerdict
+
+  const score = Number(location.opportunity_score ?? 0)
+  const nearby500m = Number(location.competitors_within_500m ?? 0)
+  const nearby1km = Number(location.competitors_within_1km ?? 0)
+
+  if (score < 45 || nearby500m >= 8 || nearby1km >= 40) {
+    return 'unfavorable'
+  }
+
+  if (score < 65 || nearby500m >= 4 || nearby1km >= 20) {
+    return baseVerdict === 'unfavorable' ? 'unfavorable' : 'neutral'
+  }
+
+  return baseVerdict
+}
+
 function formatCurrency(value) {
   if (!value && value !== 0) return '—'
   return `${Number(value).toLocaleString('ru-RU')} ₽`
@@ -66,6 +87,7 @@ function sanitizeFileName(value) {
 
 function buildReportModel(entry, generatedAt) {
   const { ideaText, parsed, analysis, selectedPoint } = entry
+  const presentationVerdict = getPresentationVerdict(analysis)
 
   return {
     title: ideaText,
@@ -76,8 +98,8 @@ function buildReportModel(entry, generatedAt) {
     audience: parsed?.target_audience?.length ? parsed.target_audience.join(', ') : '—',
     selectedPoint: formatSelectedPoint(selectedPoint),
     trend: TREND_LABELS[analysis?.trend] || analysis?.trend || '—',
-    verdict: VERDICT_LABELS[analysis?.verdict] || analysis?.verdict || '—',
-    verdictText: analysis?.verdict || '—',
+    verdict: VERDICT_LABELS[presentationVerdict] || presentationVerdict || '—',
+    verdictText: presentationVerdict || '—',
     tam: formatCurrency(analysis?.tam),
     sam: formatCurrency(analysis?.sam),
     som: formatCurrency(analysis?.som),

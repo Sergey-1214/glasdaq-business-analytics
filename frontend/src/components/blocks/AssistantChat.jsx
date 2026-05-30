@@ -20,6 +20,27 @@ const VERDICT_LABELS = {
   unfavorable: 'Рынок выглядит неблагоприятно: конкуренция высокая или спрос ограничен.',
 }
 
+function getPresentationVerdict(analysis) {
+  const location = analysis?.location_assessment
+  const baseVerdict = analysis?.verdict
+
+  if (!location) return baseVerdict
+
+  const score = Number(location.opportunity_score ?? 0)
+  const nearby500m = Number(location.competitors_within_500m ?? 0)
+  const nearby1km = Number(location.competitors_within_1km ?? 0)
+
+  if (score < 45 || nearby500m >= 8 || nearby1km >= 40) {
+    return 'unfavorable'
+  }
+
+  if (score < 65 || nearby500m >= 4 || nearby1km >= 20) {
+    return baseVerdict === 'unfavorable' ? 'unfavorable' : 'neutral'
+  }
+
+  return baseVerdict
+}
+
 function getFontConfig(focused, zone) {
   if (focused) return { lineHeight: 26, pad: 14, font: '15px Inter, system-ui, sans-serif' }
   if (zone === 'left' || zone === 'bottom') return { lineHeight: 17, pad: 7, font: '11px Inter, system-ui, sans-serif' }
@@ -215,7 +236,8 @@ function formatLocationAssessment(location) {
 
 function formatAnalysis(parsed, analysis) {
   const trend = TREND_LABELS[analysis.trend] ?? analysis.trend
-  const verdict = VERDICT_LABELS[analysis.verdict] ?? analysis.verdict
+  const presentationVerdict = getPresentationVerdict(analysis)
+  const verdict = VERDICT_LABELS[presentationVerdict] ?? presentationVerdict
   const lines = []
 
   lines.push(`Объём рынка (${parsed.region || 'Москва'}):`)
