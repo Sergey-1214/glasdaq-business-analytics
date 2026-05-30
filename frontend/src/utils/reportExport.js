@@ -25,6 +25,26 @@ function formatDateTime(value) {
   })
 }
 
+function formatSelectedPoint(selectedPoint) {
+  if (!Array.isArray(selectedPoint) || selectedPoint.length < 2) {
+    return 'не выбрана'
+  }
+
+  return `${Number(selectedPoint[1]).toFixed(6)}, ${Number(selectedPoint[0]).toFixed(6)}`
+}
+
+function formatCompetitors(competitors) {
+  if (!competitors?.length) {
+    return ['—']
+  }
+
+  if (competitors.length === 1) {
+    return [`${competitors[0].name} — лидер аналитической выборки`]
+  }
+
+  return competitors.map((item) => `${item.name}: ${item.share}% веса в выборке`)
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -35,15 +55,17 @@ function escapeHtml(value) {
 }
 
 function sanitizeFileName(value) {
-  return value
-    .toLowerCase()
-    .replaceAll(/[^a-zа-я0-9]+/gi, '-')
-    .replaceAll(/^-+|-+$/g, '')
-    .slice(0, 60) || 'report'
+  return (
+    value
+      .toLowerCase()
+      .replaceAll(/[^a-zа-я0-9]+/gi, '-')
+      .replaceAll(/^-+|-+$/g, '')
+      .slice(0, 60) || 'report'
+  )
 }
 
 function buildReportModel(entry, generatedAt) {
-  const { ideaText, parsed, analysis } = entry
+  const { ideaText, parsed, analysis, selectedPoint } = entry
 
   return {
     title: ideaText,
@@ -52,15 +74,14 @@ function buildReportModel(entry, generatedAt) {
     region: parsed?.region || 'Москва',
     subcategory: parsed?.subcategory || '—',
     audience: parsed?.target_audience?.length ? parsed.target_audience.join(', ') : '—',
+    selectedPoint: formatSelectedPoint(selectedPoint),
     trend: TREND_LABELS[analysis?.trend] || analysis?.trend || '—',
     verdict: VERDICT_LABELS[analysis?.verdict] || analysis?.verdict || '—',
     verdictText: analysis?.verdict || '—',
     tam: formatCurrency(analysis?.tam),
     sam: formatCurrency(analysis?.sam),
     som: formatCurrency(analysis?.som),
-    competitors: analysis?.competitors?.length
-      ? analysis.competitors.map((item) => `${item.name}: ${item.share}%`)
-      : ['—'],
+    competitors: formatCompetitors(analysis?.competitors),
   }
 }
 
@@ -76,9 +97,7 @@ function createDownload(blob, fileName) {
 }
 
 function buildHtmlDocument(report) {
-  const competitorItems = report.competitors
-    .map((item) => `<li>${escapeHtml(item)}</li>`)
-    .join('')
+  const competitorItems = report.competitors.map((item) => `<li>${escapeHtml(item)}</li>`).join('')
 
   return `<!DOCTYPE html>
 <html lang="ru">
@@ -132,6 +151,11 @@ function buildHtmlDocument(report) {
         background: #f6f8fc;
         border: 1px solid #d8dce8;
       }
+      .note {
+        margin-top: 10px;
+        color: #4c5165;
+        font-size: 12px;
+      }
     </style>
   </head>
   <body>
@@ -145,6 +169,7 @@ function buildHtmlDocument(report) {
         <tr><th>Подкатегория</th><td>${escapeHtml(report.subcategory)}</td></tr>
         <tr><th>Регион</th><td>${escapeHtml(report.region)}</td></tr>
         <tr><th>Аудитория</th><td>${escapeHtml(report.audience)}</td></tr>
+        <tr><th>Выбранная точка</th><td>${escapeHtml(report.selectedPoint)}</td></tr>
       </table>
     </div>
 
@@ -159,8 +184,9 @@ function buildHtmlDocument(report) {
     </div>
 
     <div class="section">
-      <div class="section-title">Конкуренты</div>
+      <div class="section-title">Сильные конкуренты в выборке</div>
       <ul>${competitorItems}</ul>
+      <div class="note">Проценты отражают относительный вес внутри текущей аналитической выборки, а не долю всего рынка Москвы.</div>
     </div>
 
     <div class="section">

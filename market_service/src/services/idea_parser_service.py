@@ -52,6 +52,7 @@ class IdeaParserService:
             logger.error("ValidationError on model output: %s\nRaw result: %s", exc, raw_result)
             parsed = self._build_fallback_parse(payload, source="fallback_validation")
 
+        parsed = self._enrich_parse(parsed, payload)
         parsed.processing_time_ms = self._elapsed_ms(started_at)
         if parsed.confidence >= 0.4 and parsed.parser_source not in {"fallback_external", "fallback_validation"}:
             self._cache_put(cache_key, parsed)
@@ -167,6 +168,65 @@ Region: {region_line}
             confidence=confidence,
             parser_source=source,
         )
+
+    def _enrich_parse(self, parsed: IdeaParseResponseData, payload: IdeaParseRequest) -> IdeaParseResponseData:
+        normalized_text = payload.idea.lower()
+
+        if not parsed.region and payload.region:
+            parsed.region = payload.region
+
+        if not parsed.target_audience:
+            parsed.target_audience = self._infer_target_audience(normalized_text)
+
+        if not parsed.subcategory:
+            parsed.subcategory = self._infer_subcategory(normalized_text, parsed.business_category)
+
+        if not parsed.location_preferences:
+            location_preferences = []
+            if any(token in normalized_text for token in ("метро", "у метро", "рядом с метро", "near metro")):
+                location_preferences.append("рядом с метро")
+            if any(token in normalized_text for token in ("навынос", "takeaway", "to go", "с собой")):
+                location_preferences.append("формат навынос")
+            parsed.location_preferences = location_preferences
+
+        return parsed
+
+    def _infer_target_audience(self, normalized_text: str) -> list[str]:
+        target_audience = []
+        if any(token in normalized_text for token in ("офис", "офисные", "бц", "бизнес-центр")):
+            target_audience.append("офисные сотрудники")
+        if any(token in normalized_text for token in ("студент", "молодеж", "университет", "вуз", "кампус")):
+            target_audience.append("студенты и молодая аудитория")
+        if any(token in normalized_text for token in ("семь", "семейн", "дет")):
+            target_audience.append("семьи с детьми")
+        if any(token in normalized_text for token in ("турист", "турпоток")):
+            target_audience.append("туристы")
+        return target_audience
+
+    def _infer_subcategory(self, normalized_text: str, category: str | None) -> str | None:
+        if category == "Кофейня":
+            if "specialty" in normalized_text:
+                return "specialty-кофейня"
+            if any(token in normalized_text for token in ("навынос", "to go", "с собой")):
+                return "кофе с собой"
+            if "студент" in normalized_text:
+                return "кофейня для студентов"
+            return "городская кофейня"
+
+        if category == "Столовая":
+            if any(token in normalized_text for token in ("студент", "университет", "вуз", "кампус")):
+                return "студенческая столовая"
+            return "городская столовая"
+
+        if category == "Ресторан":
+            if "бистро" in normalized_text:
+                return "бистро"
+            return "городской ресторан"
+
+        if category == "Доставка еды":
+            return "доставка готовой еды"
+
+        return None
 
     def _infer_category(self, normalized_text: str) -> str:
         category_aliases = (

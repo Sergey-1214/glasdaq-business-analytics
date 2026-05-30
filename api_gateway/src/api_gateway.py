@@ -159,6 +159,87 @@ def get_user_registration_date(user_id: str) -> Optional[str]:
     return None
 
 
+def build_internal_headers(request: Request) -> Dict[str, str]:
+    headers: Dict[str, str] = {}
+    authorization = request.headers.get("authorization")
+    if authorization:
+        headers["authorization"] = authorization
+
+    api_key = request.headers.get("x-api-key")
+    if api_key:
+        headers["x-api-key"] = api_key
+
+    return headers
+
+
+async def get_current_user(request: Request) -> Optional[Dict]:
+    headers = build_internal_headers(request)
+    if not headers.get("authorization"):
+        return None
+
+    identity_url = SERVICES.get("identity", "http://user_auth_service:8007")
+    response = await client.get(f"{identity_url}/api/v1/auth/me", headers=headers)
+    if response.status_code != 200:
+        return None
+
+    payload = response.json()
+    return payload.get("data")
+
+
+async def get_market_collection(request: Request, path: str) -> List[Dict]:
+    headers = build_internal_headers(request)
+    market_url = SERVICES.get("market", "http://market_service:8003")
+    response = await client.get(f"{market_url}{path}", headers=headers)
+    if response.status_code != 200:
+        return []
+
+    payload = response.json()
+    return payload.get("data", [])
+
+
+async def build_user_stats_response(request: Request) -> Dict:
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    user_id = user.get("id")
+    registration_date = user.get("created_at")
+    last_active = user.get("last_login_at") or user.get("updated_at") or registration_date
+
+    ideas = await get_market_collection(request, "/api/v1/ideas/me")
+    reports = await get_market_collection(request, "/api/v1/reports/me")
+
+    ideas = sorted(ideas, key=lambda item: item.get("created_at", ""), reverse=True)
+    total_analyses = len(ideas)
+    total_reports = len(reports)
+    first_analysis = ideas[-1].get("created_at") if ideas else None
+    last_analysis = ideas[0].get("created_at") if ideas else None
+    analyses_by_month: Dict[str, int] = {}
+
+    for idea in ideas:
+        created_at = idea.get("created_at", "")
+        if created_at:
+            month = created_at[:7]
+            analyses_by_month[month] = analyses_by_month.get(month, 0) + 1
+
+    if last_analysis and (not last_active or str(last_analysis) > str(last_active)):
+        last_active = last_analysis
+
+    return {
+        "success": True,
+        "user_id": user_id,
+        "stats": {
+            "total_analyses": total_analyses,
+            "total_reports": total_reports,
+            "registration_date": registration_date,
+            "last_active": last_active,
+            "first_analysis": first_analysis,
+            "last_analysis": last_analysis,
+            "analyses_by_month": analyses_by_month,
+        },
+    }
+
+
 # ========== MIDDLEWARE ==========
 
 @app.middleware("http")
@@ -175,6 +256,9 @@ async def log_requests(request: Request, call_next):
 @app.api_route("/api/{service}/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
 async def gateway(service: str, path: str, request: Request):
     check_api_key(request)
+
+    if service == "user" and path == "stats":
+        return await build_user_stats_response(request)
     
     if service not in SERVICES:
         raise HTTPException(
