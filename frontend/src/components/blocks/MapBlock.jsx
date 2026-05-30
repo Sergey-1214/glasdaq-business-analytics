@@ -49,9 +49,10 @@ function loadMapGlScript() {
   })
 }
 
-function createMarkerIcon(color) {
+function createMarkerIcon(color, bottomPadding = 0) {
+  const height = 44 + bottomPadding
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="34" height="44" viewBox="0 0 34 44">
+    <svg xmlns="http://www.w3.org/2000/svg" width="34" height="${height}" viewBox="0 0 34 ${height}">
       <path fill="${color}" d="M17 0C8.2 0 1 7.2 1 16.1c0 12 16 27.9 16 27.9s16-15.9 16-27.9C33 7.2 25.8 0 17 0z"/>
       <circle cx="17" cy="16" r="6.2" fill="#ffffff"/>
     </svg>
@@ -161,6 +162,28 @@ export default function MapBlock() {
   const [isPickingPoint, setIsPickingPoint] = useState(false)
   const [showCompetitors, setShowCompetitors] = useState(true)
 
+  function destroyCompetitorMarkers() {
+    competitorMarkersRef.current.forEach((marker) => marker.destroy())
+    competitorMarkersRef.current = []
+  }
+
+  function ensureSelectedMarker(map, mapgl, coordinates = null) {
+    if (selectedMarkerRef.current) {
+      if (coordinates) {
+        selectedMarkerRef.current.setCoordinates(coordinates)
+      }
+      return selectedMarkerRef.current
+    }
+
+    selectedMarkerRef.current = new mapgl.Marker(map, {
+      coordinates: coordinates || MOSCOW_CENTER,
+      icon: createMarkerIcon('#4fd39a'),
+      size: [34, 44],
+    })
+
+    return selectedMarkerRef.current
+  }
+
   useEffect(() => {
     isPickingPointRef.current = isPickingPoint
   }, [isPickingPoint])
@@ -222,29 +245,10 @@ export default function MapBlock() {
           console.error('2GIS styleloaderror:', event)
         })
 
-        const ensureSelectedMarker = () => {
-          if (selectedMarkerRef.current) {
-            return selectedMarkerRef.current
-          }
-
-          selectedMarkerRef.current = new mapgl.Marker(map, {
-            coordinates: MOSCOW_CENTER,
-            icon: createMarkerIcon('#4fd39a'),
-            size: [34, 44],
-          })
-
-          return selectedMarkerRef.current
-        }
-
-        if (selectedPointRef.current) {
-          const selectedMarker = ensureSelectedMarker()
-          selectedMarker.setCoordinates(selectedPointRef.current)
-        }
-
         map.on('click', (event) => {
           if (isPickingPointRef.current) {
             const nextCoordinates = event.lngLat
-            const selectedMarker = ensureSelectedMarker()
+            const selectedMarker = ensureSelectedMarker(map, mapgl)
 
             selectedMarker.setCoordinates(nextCoordinates)
             setSelectedPoint(nextCoordinates)
@@ -257,8 +261,7 @@ export default function MapBlock() {
         })
 
         cleanupRef.current = () => {
-          competitorMarkersRef.current.forEach((marker) => marker.destroy())
-          competitorMarkersRef.current = []
+          destroyCompetitorMarkers()
 
           if (selectedMarkerRef.current) {
             selectedMarkerRef.current.destroy()
@@ -270,6 +273,29 @@ export default function MapBlock() {
           mapglRef.current = null
         }
 
+        destroyCompetitorMarkers()
+
+        if (showCompetitors) {
+          competitorMarkersRef.current = competitorsRef.current.map((competitor) => {
+            const marker = new mapgl.Marker(map, {
+              coordinates: competitor.coordinates,
+              icon: createMarkerIcon('#ff6b57'),
+              size: [34, 44],
+            })
+
+            marker.on('click', () => {
+              setIsPickingPoint(false)
+              setSelectedCompetitor(competitor)
+            })
+
+            return marker
+          })
+        }
+
+        if (selectedPointRef.current) {
+          const marker = ensureSelectedMarker(map, mapgl, selectedPointRef.current)
+          marker.setCoordinates(selectedPointRef.current)
+        }
         setStatus('ready')
       } catch (error) {
         if (!isDisposed) {
@@ -296,8 +322,7 @@ export default function MapBlock() {
     const mapgl = mapglRef.current
     if (!map || !mapgl) return
 
-    competitorMarkersRef.current.forEach((marker) => marker.destroy())
-    competitorMarkersRef.current = []
+    destroyCompetitorMarkers()
 
     if (!showCompetitors) {
       setSelectedCompetitor(null)
@@ -318,6 +343,11 @@ export default function MapBlock() {
 
       return marker
     })
+
+    if (selectedPointRef.current) {
+      const marker = ensureSelectedMarker(map, mapgl, selectedPointRef.current)
+      marker.setCoordinates(selectedPointRef.current)
+    }
   }, [showCompetitors])
 
   function handlePickPointToggle() {

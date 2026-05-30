@@ -1,10 +1,8 @@
-import { useRef, useState } from 'react'
-import { Home, Plus } from 'lucide-react'
+import { Home } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { BLOCK_REGISTRY, useDashboardStore } from '../../store/dashboardStore'
 import SortableBlock from '../blocks/SortableBlock'
-import WorkspaceSelector from '../ui/WorkspaceSelector'
 import './LeftSidebar.css'
 
 function FocusSidebar() {
@@ -44,8 +42,6 @@ function NormalSidebar({ isDropTarget }) {
   const { zones } = useDashboardStore()
   const leftIds = zones.left
   const { setNodeRef } = useDroppable({ id: 'left' })
-  const [selectorOpen, setSelectorOpen] = useState(false)
-  const addBtnRef = useRef(null)
 
   return (
     <aside className={`left-sidebar ${isDropTarget ? 'left-sidebar--drop-target' : ''}`}>
@@ -56,29 +52,6 @@ function NormalSidebar({ isDropTarget }) {
           ))}
         </div>
       </SortableContext>
-
-      <div className="left-sidebar__add-wrapper">
-        <button
-          ref={addBtnRef}
-          className="left-sidebar__add-btn"
-          title="Добавить блок"
-          onClick={() => setSelectorOpen((value) => !value)}
-          aria-label="Добавить блок слева"
-          aria-haspopup="dialog"
-          aria-expanded={selectorOpen}
-        >
-          <Plus size={18} />
-        </button>
-        {selectorOpen && (
-          <WorkspaceSelector
-            triggerRef={addBtnRef}
-            onClose={() => setSelectorOpen(false)}
-            targetZone="left"
-            usePortal
-            portalSide="right"
-          />
-        )}
-      </div>
     </aside>
   )
 }
